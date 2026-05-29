@@ -1,7 +1,7 @@
 import os
 import sqlite3
 from werkzeug.utils import secure_filename
-from flask import Flask, render_template, request, redirect, session, flash, url_for
+from flask import Flask, render_template, request, redirect, session, flash, url_for, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 
@@ -34,6 +34,16 @@ def get_restaurant():
     conn.close()
 
     return restaurant
+
+def menu_item_to_dict(item):
+    return {
+        "menu_id": item["menu_id"],
+        "name": item["name"],
+        "category": item["category"],
+        "price": item["price"],
+        "description": item["description"],
+        "image_filename": item["image_filename"]
+    }
 
 @app.route("/")
 def index():
@@ -236,7 +246,6 @@ def order():
 
     return render_template("order.html", menu=menu, restaurant=restaurant)
 
-@app.route("/order_summary")
 @app.route("/order_summary")
 def order_summary():
     conn = get_db()
@@ -510,5 +519,161 @@ def clear_order():
     flash("Your order was cleared. You can now choose new items.", "info")
     return redirect("/order")
 
+@app.route("/api/menu", methods=["GET"])
+def api_get_menu():
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT *
+        FROM menu
+        ORDER BY
+            CASE LOWER(category)
+                WHEN 'appetizers' THEN 1
+                WHEN 'entrees' THEN 2
+                WHEN 'desserts' THEN 3
+                WHEN 'beverages' THEN 4
+                ELSE 5
+            END,
+            name
+    """)
+
+    menu = cur.fetchall()
+    conn.close()
+
+    return jsonify([menu_item_to_dict(item) for item in menu])
+
+@app.route("/api/menu/<int:menu_id>", methods=["GET"])
+def api_get_menu_item(menu_id):
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT *
+        FROM menu
+        WHERE menu_id = ?
+    """, (menu_id,))
+
+    item = cur.fetchone()
+    conn.close()
+
+    if item is None:
+        return jsonify({"error": "Menu item not found"}), 404
+
+    return jsonify(menu_item_to_dict(item))
+
+@app.route("/api/menu", methods=["POST"])
+def api_create_menu_item():
+    if not session.get("admin_logged_in"):
+        return jsonify({"error": "Admin login required"}), 401
+
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Missing JSON data"}), 400
+
+    required_fields = ["name", "category", "price", "description"]
+
+    for field in required_fields:
+        if field not in data:
+            return jsonify({"error": f"Missing field: {field}"}), 400
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO menu (name, category, price, description, image_filename)
+        VALUES (?, ?, ?, ?, ?)
+    """, (
+        data["name"],
+        data["category"].capitalize(),
+        float(data["price"]),
+        data["description"],
+        data.get("image_filename")
+    ))
+
+    conn.commit()
+    new_id = cur.lastrowid
+
+    cur.execute("SELECT * FROM menu WHERE menu_id = ?", (new_id,))
+    new_item = cur.fetchone()
+
+    conn.close()
+
+    return jsonify(menu_item_to_dict(new_item)), 201
+
+@app.route("/api/menu/<int:menu_id>", methods=["PUT"])
+def api_update_menu_item(menu_id):
+    if not session.get("admin_logged_in"):
+        return jsonify({"error": "Admin login required"}), 401
+
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Missing JSON data"}), 400
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM menu WHERE menu_id = ?", (menu_id,))
+    existing_item = cur.fetchone()
+
+    if existing_item is None:
+        conn.close()
+        return jsonify({"error": "Menu item not found"}), 404
+
+    name = data.get("name", existing_item["name"])
+    category = data.get("category", existing_item["category"])
+    price = data.get("price", existing_item["price"])
+    description = data.get("description", existing_item["description"])
+    image_filename = data.get("image_filename", existing_item["image_filename"])
+
+    cur.execute("""
+        UPDATE menu
+        SET name = ?, category = ?, price = ?, description = ?, image_filename = ?
+        WHERE menu_id = ?
+    """, (
+        name,
+        category.capitalize(),
+        float(price),
+        description,
+        image_filename,
+        menu_id
+    ))
+
+    conn.commit()
+
+    cur.execute("SELECT * FROM menu WHERE menu_id = ?", (menu_id,))
+    updated_item = cur.fetchone()
+
+    conn.close()
+
+    return jsonify(menu_item_to_dict(updated_item))
+
+@app.route("/api/menu/<int:menu_id>", methods=["DELETE"])
+def api_delete_menu_item(menu_id):
+    if not session.get("admin_logged_in"):
+        return jsonify({"error": "Admin login required"}), 401
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT * FROM menu WHERE menu_id = ?", (menu_id,))
+    item = cur.fetchone()
+
+    if item is None:
+        conn.close()
+        return jsonify({"error": "Menu item not found"}), 404
+
+    cur.execute("DELETE FROM menu WHERE menu_id = ?", (menu_id,))
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        "message": "Menu item deleted successfully",
+        "deleted_menu_id": menu_id
+    })
+    
+    
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
