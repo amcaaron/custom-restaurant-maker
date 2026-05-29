@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel{% endblock %}
+
+{% block content %}
+
+<h1 class="text-center mb-4">Admin Panel</h1>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+
+        <div class="card shadow mb-5">
+            <div class="card-header bg-dark text-white">
+                <h3 class="mb-0">Insert New Menu Item</h3>
+            </div>
+
+            <div class="card-body">
+
+                <form method="post" action="/admin" enctype="multipart/form-data">
+
+                    <div class="mb-3">
+                        <label class="form-label">Item Name</label>
+                        <input type="text" name="name" class="form-control" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Category</label>
+                        <select name="category" class="form-select" required>
+                            <option value="Appetizers">Appetizers</option>
+                            <option value="Entrees">Entrees</option>
+                            <option value="Desserts">Desserts</option>
+                            <option value="Beverages">Beverages</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Price</label>
+                        <input type="number" step="0.01" name="price" class="form-control" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <input type="text" name="description" class="form-control" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Menu Item Image</label>
+                        <input type="file" name="image" class="form-control">
+                    </div>
+
+                    <button type="submit" class="btn btn-success">
+                        Add Item
+                    </button>
+
+                </form>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<h2 class="text-center mb-4">Current Menu</h2>
+
+<h3 class="mt-4">🍤 Appetizers</h3>
+
+<div class="row">
+    {% for item in menu %}
+        {% if item['category'].lower() == 'appetizers' %}
+            <div class="col-md-4 mb-3">
+                <div class="card h-100 shadow-sm">
+
+                    {% if item['image_filename'] %}
+                        <img src="{{ url_for('static', filename='uploads/' + item['image_filename']) }}"
+                             class="card-img-top"
+                             style="height: 200px; object-fit: cover;">
+                    {% endif %}
+
+                    <div class="card-body">
+                        <h5 class="card-title">{{ item['name'] }}</h5>
+
+                        <p class="card-text">
+                            {{ item['description'] }}
+                        </p>
+
+                        <p>
+                            <strong>${{ "%.2f"|format(item['price']) }}</strong>
+                        </p>
+                    </div>
+
+                </div>
+            </div>
+        {% endif %}
+    {% endfor %}
+</div>
+
+<h3 class="mt-5">🍽 Entrees</h3>
+
+<div class="row">
+    {% for item in menu %}
+        {% if item['category'].lower() == 'entrees' %}
+            <div class="col-md-4 mb-3">
+                <div class="card h-100 shadow-sm">
+
+                    {% if item['image_filename'] %}
+                        <img src="{{ url_for('static', filename='uploads/' + item['image_filename']) }}"
+                             class="card-img-top"
+                             style="height: 200px; object-fit: cover;">
+                    {% endif %}
+
+                    <div class="card-body">
+                        <h5 class="card-title">{{ item['name'] }}</h5>
+
+                        <p class="card-text">
+                            {{ item['description'] }}
+                        </p>
+
+                        <p>
+                            <strong>${{ "%.2f"|format(item['price']) }}</strong>
+                        </p>
+                    </div>
+
+                </div>
+            </div>
+        {% endif %}
+    {% endfor %}
+</div>
+
+<h3 class="mt-5">🍰 Desserts</h3>
+
+<div class="row">
+    {% for item in menu %}
+        {% if item['category'].lower() == 'desserts' %}
+            <div class="col-md-4 mb-3">
+                <div class="card h-100 shadow-sm">
+
+                    {% if item['image_filename'] %}
+                        <img src="{{ url_for('static', filename='uploads/' + item['image_filename']) }}"
+                             class="card-img-top"
+                             style="height: 200px; object-fit: cover;">
+                    {% endif %}
+
+                    <div class="card-body">
+                        <h5 class="card-title">{{ item['name'] }}</h5>
+
+                        <p class="card-text">
+                            {{ item['description'] }}
+                        </p>
+
+                        <p>
+                            <strong>${{ "%.2f"|format(item['price']) }}</strong>
+                        </p>
+                    </div>
+
+                </div>
+            </div>
+        {% endif %}
+    {% endfor %}
+</div>
+
+<h3 class="mt-5">🥤 Beverages</h3>
+
+<div class="row">
+    {% for item in menu %}
+        {% if item['category'].lower() == 'beverages' %}
+            <div class="col-md-4 mb-3">
+                <div class="card h-100 shadow-sm">
+
+                    {% if item['image_filename'] %}
+                        <img src="{{ url_for('static', filename='uploads/' + item['image_filename']) }}"
+                             class="card-img-top"
+                             style="height: 200px; object-fit: cover;">
+                    {% endif %}
+
+                    <div class="card-body">
+                        <h5 class="card-title">{{ item['name'] }}</h5>
+
+                        <p class="card-text">
+                            {{ item['description'] }}
+                        </p>
+
+                        <p>
+                            <strong>${{ "%.2f"|format(item['price']) }}</strong>
+                        </p>
+                    </div>
+
+                </div>
+            </div>
+        {% endif %}
+    {% endfor %}
+</div>
+
+<div class="text-center mt-5 mb-5">
+    <a href="/" class="btn btn-secondary">
+        Back to Home
+    </a>
+</div>
+
+{% endblock %}

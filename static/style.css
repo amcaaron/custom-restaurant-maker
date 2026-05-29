@@ -1,0 +1,148 @@
+/* Custom Restaurant Maker Styling */
+
+:root {
+    --primary-dark: #1f2933;
+    --primary-orange: #f97316;
+    --primary-yellow: #facc15;
+    --primary-green: #16a34a;
+    --soft-bg: #f8fafc;
+    --card-bg: #ffffff;
+    --text-dark: #1f2933;
+}
+
+/* Page Body */
+body {
+    background-color: var(--soft-bg);
+    color: var(--text-dark);
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Navbar */
+.navbar {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.navbar-brand {
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.brand-highlight {
+    color: var(--primary-orange);
+}
+
+/* Hero Section */
+.hero-section {
+    background: linear-gradient(
+        135deg,
+        #1f2933 0%,
+        #374151 50%,
+        #f97316 100%
+    );
+    color: white;
+    padding: 90px 30px;
+    border-radius: 20px;
+    margin-top: 40px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.hero-section h1 {
+    font-size: 3.5rem;
+    font-weight: 800;
+}
+
+.hero-section p {
+    font-size: 1.25rem;
+    max-width: 700px;
+    margin: 20px auto;
+}
+
+/* Buttons */
+.btn-custom-orange {
+    background-color: var(--primary-orange);
+    color: white;
+    border: none;
+}
+
+.btn-custom-orange:hover {
+    background-color: #ea580c;
+    color: white;
+}
+
+.btn-custom-dark {
+    background-color: var(--primary-dark);
+    color: white;
+    border: none;
+}
+
+.btn-custom-dark:hover {
+    background-color: #111827;
+    color: white;
+}
+
+/* Cards */
+.card {
+    border: none;
+    border-radius: 14px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 25px rgba(0, 0, 0, 0.18);
+}
+
+.card-title {
+    font-weight: 700;
+}
+
+.card-img-top {
+    border-top-left-radius: 14px;
+    border-top-right-radius: 14px;
+}
+
+/* Section Headings */
+.section-title {
+    font-weight: 800;
+    margin-top: 40px;
+    margin-bottom: 20px;
+    border-left: 6px solid var(--primary-orange);
+    padding-left: 12px;
+}
+
+/* Forms */
+.form-control,
+.form-select {
+    border-radius: 10px;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--primary-orange);
+    box-shadow: 0 0 0 0.2rem rgba(249, 115, 22, 0.25);
+}
+
+/* Footer */
+.footer {
+    background-color: var(--primary-dark);
+    color: white;
+    padding: 25px 0;
+    margin-top: 70px;
+    text-align: center;
+}
+
+.footer p {
+    margin: 0;
+    color: #d1d5db;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .hero-section {
+        padding: 60px 20px;
+    }
+
+    .hero-section h1 {
+        font-size: 2.4rem;
+    }
+}

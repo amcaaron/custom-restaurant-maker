@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}Order Summary{% endblock %}
+
+{% block content %}
+
+<h1 class="text-center mb-4">Order Summary</h1>
+
+<div class="row justify-content-center">
+    <div class="col-md-9">
+
+        <div class="card shadow mb-4">
+            <div class="card-header bg-dark text-white">
+                <h3 class="mb-0">Your Items</h3>
+            </div>
+
+            <div class="card-body">
+
+                {% if summary %}
+                    <div class="table-responsive">
+                        <table class="table table-striped align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Item</th>
+                                    <th class="text-center">Quantity</th>
+                                    <th class="text-end">Total</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {% for item in summary %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ item['name'] }}</strong>
+                                        </td>
+
+                                        <td class="text-center">
+                                            x{{ item['quantity'] }}
+                                        </td>
+
+                                        <td class="text-end">
+                                            ${{ "%.2f"|format(item['total_price']) }}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p class="text-muted">
+                        No items were added to this order.
+                    </p>
+                {% endif %}
+
+            </div>
+        </div>
+
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h3 class="mb-0">Payment Breakdown</h3>
+            </div>
+
+            <div class="card-body">
+
+                <div class="d-flex justify-content-between">
+                    <span>Subtotal</span>
+                    <strong>${{ "%.2f"|format(subtotal) }}</strong>
+                </div>
+
+                <hr>
+
+                <div class="d-flex justify-content-between">
+                    <span>Tax 6.625%</span>
+                    <strong>${{ "%.2f"|format(tax) }}</strong>
+                </div>
+
+                <hr>
+
+                <div class="d-flex justify-content-between">
+                    <span>Tip</span>
+                    <strong>${{ "%.2f"|format(tip) }}</strong>
+                </div>
+
+                <hr>
+
+                <div class="d-flex justify-content-between">
+                    <span>Delivery Fee</span>
+                    <strong>${{ "%.2f"|format(delivery_fee) }}</strong>
+                </div>
+
+                <hr>
+
+                <div class="d-flex justify-content-between fs-4">
+                    <span>Total</span>
+                    <strong>${{ "%.2f"|format(total) }}</strong>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="text-center mt-4 mb-5">
+
+            {% if summary %}
+                <a href="/checkout" class="btn btn-success btn-lg">
+                    Continue to Checkout
+                </a>
+            {% endif %}
+
+            <a href="/clear_order" class="btn btn-secondary btn-lg">
+              Clear Order & Back to Menu
+            </a>
+
+            <a href="/" class="btn btn-outline-dark btn-lg">
+                Return Home
+            </a>
+
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}

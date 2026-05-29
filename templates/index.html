@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Home | Custom Restaurant Maker{% endblock %}
+
+{% block content %}
+
+<section class="hero-section text-center">
+
+  {% if restaurant and restaurant['logo_filename'] %}
+      <img src="{{ url_for('static', filename='uploads/' + restaurant['logo_filename']) }}"
+           class="img-fluid mb-4"
+           style="max-height: 140px;">
+  {% endif %}
+
+  <h1>
+      {% if restaurant %}
+          {{ restaurant['name'] }}
+      {% else %}
+          Custom Restaurant Maker
+      {% endif %}
+  </h1>
+
+  <p>
+      {% if restaurant %}
+          {{ restaurant['description'] }}
+      {% else %}
+          Build a restaurant menu, upload food images, organize categories, and let customers place orders through a clean web interface.
+      {% endif %}
+  </p>
+
+  <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
+
+      <a href="/start_order" class="btn btn-custom-orange btn-lg">
+          Start an Order
+      </a>
+
+      <a href="/order" class="btn btn-light btn-lg">
+          View Menu
+      </a>
+
+      <a href="/admin" class="btn btn-custom-dark btn-lg">
+          Admin Panel
+      </a>
+
+  </div>
+
+</section>
+
+<section class="mt-5">
+
+    <h2 class="text-center mb-4">
+        What You Can Do
+    </h2>
+
+    <div class="row">
+
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Create Menu Items</h5>
+                    <p class="card-text">
+                        Add appetizers, entrees, desserts, and beverages through the admin panel.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Upload Food Images</h5>
+                    <p class="card-text">
+                        Attach images to menu items so the restaurant menu feels more realistic.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Place Orders</h5>
+                    <p class="card-text">
+                        Customers can start an order, choose quantities, and view an order summary.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</section>
+
+{% endblock %}

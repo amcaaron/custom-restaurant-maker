@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Beverages{% endblock %}
+
+{% block content %}
+
+<h1>Beverages</h1>
+
+{% for item in menu %}
+
+<div class="card mb-3">
+    <div class="card-body">
+
+        <h5>{{ item['name'] }}</h5>
+
+        <p>
+            {{ item['description'] }}
+        </p>
+
+        <strong>
+            ${{ item['price'] }}
+        </strong>
+
+    </div>
+</div>
+
+{% endfor %}
+
+{% endblock %}

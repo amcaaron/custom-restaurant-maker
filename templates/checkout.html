@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Checkout{% endblock %}
+
+{% block content %}
+
+<h1 class="text-center mb-4">Checkout</h1>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+
+        <div class="card shadow mb-4">
+            <div class="card-header bg-dark text-white">
+                <h3 class="mb-0">Order Total</h3>
+            </div>
+
+            <div class="card-body">
+
+                <p><strong>Subtotal:</strong> ${{ "%.2f"|format(subtotal) }}</p>
+                <p><strong>Tax:</strong> ${{ "%.2f"|format(tax) }}</p>
+                <p><strong>Tip:</strong> ${{ "%.2f"|format(tip) }}</p>
+                <p><strong>Delivery Fee:</strong> ${{ "%.2f"|format(delivery_fee) }}</p>
+
+                <hr>
+
+                <h4>
+                    Total: ${{ "%.2f"|format(total) }}
+                </h4>
+
+            </div>
+        </div>
+
+        <div class="card shadow">
+            <div class="card-header bg-success text-white">
+                <h3 class="mb-0">Payment Method</h3>
+            </div>
+
+            <div class="card-body">
+
+                <form method="post" action="/checkout">
+
+                    <div class="mb-3">
+                        <label class="form-label">Choose Payment Method</label>
+
+                        <select name="payment_method" class="form-select" required>
+                            <option value="">Select Payment Method</option>
+                            <option value="Credit Card">Credit Card</option>
+                            <option value="Debit Card">Debit Card</option>
+                            <option value="Cash">Cash</option>
+                            <option value="Apple Pay">Apple Pay</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-success btn-lg">
+                        Place Order
+                    </button>
+
+                    <a href="/order_summary" class="btn btn-secondary btn-lg">
+                        Back to Summary
+                    </a>
+
+                </form>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}

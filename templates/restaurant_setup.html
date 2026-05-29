@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Restaurant Setup{% endblock %}
+
+{% block content %}
+
+<h1 class="text-center mb-4">Restaurant Setup</h1>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+
+        <div class="card shadow">
+            <div class="card-header bg-dark text-white">
+                <h3 class="mb-0">Customize Restaurant Profile</h3>
+            </div>
+
+            <div class="card-body">
+
+                <form method="post" action="/restaurant_setup" enctype="multipart/form-data">
+
+                    <div class="mb-3">
+                        <label class="form-label">Restaurant Name</label>
+                        <input type="text"
+                               name="name"
+                               class="form-control"
+                               value="{{ restaurant['name'] if restaurant else '' }}"
+                               required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Restaurant Description</label>
+                        <textarea name="description"
+                                  class="form-control"
+                                  rows="4"
+                                  required>{{ restaurant['description'] if restaurant else '' }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Theme Color</label>
+                        <input type="color"
+                               name="theme_color"
+                               class="form-control form-control-color"
+                               value="{{ restaurant['theme_color'] if restaurant and restaurant['theme_color'] else '#f97316' }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Restaurant Logo</label>
+                        <input type="file" name="logo" class="form-control">
+                    </div>
+
+                    {% if restaurant and restaurant['logo_filename'] %}
+                        <div class="mb-3">
+                            <p>Current Logo:</p>
+                            <img src="{{ url_for('static', filename='uploads/' + restaurant['logo_filename']) }}"
+                                 style="max-height: 150px;"
+                                 class="img-thumbnail">
+                        </div>
+                    {% endif %}
+
+                    <button type="submit" class="btn btn-success">
+                        Save Restaurant Profile
+                    </button>
+
+                </form>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}

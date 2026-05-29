@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Order Confirmed{% endblock %}
+
+{% block content %}
+
+<div class="text-center mt-5">
+
+    <h1 class="mb-3">Order Confirmed!</h1>
+
+    <p class="lead">
+        Thank you for your order.
+    </p>
+
+    {% if order %}
+        <div class="card shadow mt-4">
+            <div class="card-body">
+
+                <h4>Order Number</h4>
+                <p>{{ order['order_number'] }}</p>
+
+                <h4>Status</h4>
+                <p>{{ order['status'] }}</p>
+
+                <h4>Payment Method</h4>
+                <p>{{ order['payment_method'] }}</p>
+
+                <h4>Total Paid</h4>
+                <p>${{ "%.2f"|format(order['total_amount']) }}</p>
+
+            </div>
+        </div>
+    {% endif %}
+
+    <a href="/" class="btn btn-primary btn-lg mt-4">
+        Back to Home
+    </a>
+
+</div>
+
+{% endblock %}
