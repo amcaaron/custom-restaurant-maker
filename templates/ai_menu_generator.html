@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}AI Menu Generator{% endblock %}
+
+{% block content %}
+
+<h1 class="text-center mb-4">AI Menu Generator</h1>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+
+        <div class="card shadow mb-4">
+            <div class="card-header bg-dark text-white">
+                <h3 class="mb-0">Generate Menu Ideas</h3>
+            </div>
+
+            <div class="card-body">
+
+                <form method="post" action="/ai_menu_generator">
+
+                    <div class="mb-3">
+                        <label class="form-label">Restaurant Concept</label>
+                        <input type="text"
+                               name="restaurant_type"
+                               class="form-control"
+                               placeholder="Example: Italian seafood restaurant"
+                               required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Number of Items</label>
+                        <select name="item_count" class="form-select">
+                            <option value="3">3 Items</option>
+                            <option value="5">5 Items</option>
+                            <option value="8">8 Items</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-custom-orange">
+                        Generate Menu Ideas
+                    </button>
+
+                </form>
+
+            </div>
+        </div>
+
+        {% if generated_items %}
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0">Generated Menu Items</h3>
+                </div>
+
+                <div class="card-body">
+
+                    {% for item in generated_items %}
+                        <div class="border rounded p-3 mb-3">
+                            <h5>{{ item["name"] }}</h5>
+
+                            <p class="mb-1">
+                                <strong>Category:</strong> {{ item["category"] }}
+                            </p>
+
+                            <p class="mb-1">
+                                <strong>Price:</strong> ${{ "%.2f"|format(item["price"]) }}
+                            </p>
+
+                            <p>
+                                {{ item["description"] }}
+                            </p>
+
+                            <form method="post" action="/save_ai_menu_item">
+                                <input type="hidden" name="name" value="{{ item['name'] }}">
+                                <input type="hidden" name="category" value="{{ item['category'] }}">
+                                <input type="hidden" name="price" value="{{ item['price'] }}">
+                                <input type="hidden" name="description" value="{{ item['description'] }}">
+
+                                <button type="submit" class="btn btn-success">
+                                    Save to Menu
+                                </button>
+                            </form>
+                        </div>
+                    {% endfor %}
+
+                </div>
+            </div>
+
+            <a href="/clear_ai_items" class="btn btn-secondary mt-3">
+                Clear Generated Items
+            </a>
+        {% endif %}
+
+        {% if demo_mode %}
+            <div class="alert alert-warning text-center">
+                Demo Mode: These items were generated from sample fallback data because the AI API is currently unavailable.
+            </div>
+        {% endif %}
+
+    </div>
+</div>
+
+{% endblock %}

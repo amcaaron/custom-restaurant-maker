@@ -1,9 +1,16 @@
 import os
 import sqlite3
-from werkzeug.utils import secure_filename
-from flask import Flask, render_template, request, redirect, session, flash, url_for, jsonify
-from werkzeug.security import generate_password_hash, check_password_hash
+import json
 from datetime import datetime
+
+from dotenv import load_dotenv
+from openai import OpenAI
+from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask import Flask, render_template, request, redirect, session, flash, url_for, jsonify
+
+load_dotenv()
+client = OpenAI()
 
 app = Flask(__name__)
 app.secret_key = "mysecretkey"  # Needed for session handling
@@ -674,6 +681,128 @@ def api_delete_menu_item(menu_id):
         "deleted_menu_id": menu_id
     })
     
-    
+@app.route("/ai_menu_generator", methods=["GET", "POST"])
+def ai_menu_generator():
+    if not session.get("admin_logged_in"):
+        flash("Please log in to use the AI menu generator.", "warning")
+        return redirect("/login")
+
+    generated_items = session.get("generated_items", [])
+    demo_mode = False
+
+    if request.method == "POST":
+        restaurant_type = request.form["restaurant_type"]
+        item_count = int(request.form["item_count"])
+
+        prompt = f"""
+        Generate {item_count} restaurant menu items for this restaurant concept:
+        {restaurant_type}
+
+        Return ONLY valid JSON in this exact format:
+        [
+          {{
+            "name": "Item Name",
+            "category": "Appetizers",
+            "price": 9.99,
+            "description": "Short menu description"
+          }}
+        ]
+
+        Categories must be one of:
+        Appetizers, Entrees, Desserts, Beverages.
+        Prices should be realistic.
+        """
+
+        try:
+            response = client.responses.create(
+                model="gpt-4.1-mini",
+                input=prompt
+            )
+
+            generated_text = response.output_text
+            generated_items = json.loads(generated_text)
+
+        except Exception:
+            demo_mode = True
+
+            flash(
+                "AI quota unavailable, so demo menu ideas were generated instead.",
+                "warning"
+            )
+
+            sample_items = [
+                {
+                    "name": "Crispy Loaded Nachos",
+                    "category": "Appetizers",
+                    "price": 10.99,
+                    "description": "Tortilla chips topped with melted cheese, jalapeños, salsa, and house crema."
+                },
+                {
+                    "name": "Signature Grill Burger",
+                    "category": "Entrees",
+                    "price": 14.99,
+                    "description": "Juicy grilled burger with lettuce, tomato, onions, pickles, and house sauce."
+                },
+                {
+                    "name": "Chocolate Lava Cake",
+                    "category": "Desserts",
+                    "price": 7.99,
+                    "description": "Warm chocolate cake with a rich melted center served with whipped cream."
+                }
+            ]
+
+            generated_items = sample_items[:item_count]
+
+        session["generated_items"] = generated_items
+
+    return render_template(
+        "ai_menu_generator.html",
+        generated_items=generated_items,
+        demo_mode=demo_mode
+    )
+
+@app.route("/save_ai_menu_item", methods=["POST"])
+def save_ai_menu_item():
+    if not session.get("admin_logged_in"):
+        flash("Please log in to save AI menu items.", "warning")
+        return redirect("/login")
+
+    name = request.form["name"]
+    category = request.form["category"]
+    price = float(request.form["price"])
+    description = request.form["description"]
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
+        INSERT INTO menu (name, category, price, description, image_filename)
+        VALUES (?, ?, ?, ?, ?)
+    """, (
+        name,
+        category,
+        price,
+        description,
+        None
+    ))
+
+    conn.commit()
+    conn.close()
+
+    flash(f"{name} was added to your menu.", "success")
+
+    return redirect("/ai_menu_generator")
+
+@app.route("/clear_ai_items")
+def clear_ai_items():
+    if not session.get("admin_logged_in"):
+        flash("Please log in first.", "warning")
+        return redirect("/login")
+
+    session.pop("generated_items", None)
+
+    flash("Generated AI items cleared.", "info")
+    return redirect("/ai_menu_generator")
+
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
