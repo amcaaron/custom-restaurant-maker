@@ -10,7 +10,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, session, flash, url_for, jsonify
 
 load_dotenv()
-client = OpenAI()
 
 app = Flask(__name__)
 app.secret_key = "mysecretkey"  # Needed for session handling
@@ -714,6 +713,7 @@ def ai_menu_generator():
         """
 
         try:
+            client = OpenAI()
             response = client.responses.create(
                 model="gpt-4.1-mini",
                 input=prompt
