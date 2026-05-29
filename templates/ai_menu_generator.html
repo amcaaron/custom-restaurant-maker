@@ -69,7 +69,7 @@
                                 {{ item["description"] }}
                             </p>
 
-                            <form method="post" action="/save_ai_menu_item">
+                            <form method="post" action="/save_ai_menu_item" class="d-flex gap-2 flex-wrap">
                                 <input type="hidden" name="name" value="{{ item['name'] }}">
                                 <input type="hidden" name="category" value="{{ item['category'] }}">
                                 <input type="hidden" name="price" value="{{ item['price'] }}">
@@ -77,6 +77,13 @@
 
                                 <button type="submit" class="btn btn-success">
                                     Save to Menu
+                                </button>
+
+                                <button type="submit"
+                                        name="generate_image"
+                                        value="yes"
+                                        class="btn btn-custom-orange">
+                                    Save + Generate Image
                                 </button>
                             </form>
                         </div>

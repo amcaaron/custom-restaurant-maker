@@ -1,6 +1,8 @@
 import os
 import sqlite3
 import json
+import base64
+import uuid
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -41,6 +43,28 @@ def get_restaurant():
 
     return restaurant
 
+def reset_menu_to_starter():
+    conn = get_db()
+    cur = conn.cursor()
+
+    starter_menu = [
+        ("Starter Bites", "Appetizers", 6.99, "A customizable appetizer for your restaurant.", None),
+        ("Signature Entree", "Entrees", 12.99, "A main dish that can be replaced with your own specialty.", None),
+        ("House Dessert", "Desserts", 5.99, "A simple dessert placeholder for your custom menu.", None),
+        ("House Drink", "Beverages", 2.99, "A starter beverage item for your menu.", None)
+    ]
+
+    cur.execute("DELETE FROM order_items")
+    cur.execute("DELETE FROM menu")
+
+    cur.executemany("""
+        INSERT INTO menu (name, category, price, description, image_filename)
+        VALUES (?, ?, ?, ?, ?)
+    """, starter_menu)
+
+    conn.commit()
+    conn.close()
+
 def menu_item_to_dict(item):
     return {
         "menu_id": item["menu_id"],
@@ -50,6 +74,45 @@ def menu_item_to_dict(item):
         "description": item["description"],
         "image_filename": item["image_filename"]
     }
+
+def generate_ai_food_image(name, description, category):
+    try:
+        client = OpenAI()
+
+        prompt = f"""
+        Create a realistic, appetizing restaurant menu food photo.
+
+        Food item name: {name}
+        Category: {category}
+        Description: {description}
+
+        Style: professional food photography, clean background, realistic,
+        well-lit, centered plate, high quality, restaurant menu image.
+        Do not include text, labels, logos, or watermarks in the image.
+        """
+
+        result = client.images.generate(
+            model="gpt-image-1",
+            prompt=prompt,
+            size="1024x1024"
+        )
+
+        image_b64 = result.data[0].b64_json
+        image_bytes = base64.b64decode(image_b64)
+
+        os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
+        filename = f"ai_food_{uuid.uuid4().hex}.png"
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+
+        with open(filepath, "wb") as image_file:
+            image_file.write(image_bytes)
+
+        return filename
+
+    except Exception as e:
+        print("AI image generation failed:", e)
+        return None
 
 @app.route("/")
 def index():
@@ -358,6 +421,8 @@ def restaurant_setup():
         cur.execute("SELECT * FROM restaurants LIMIT 1")
         existing_restaurant = cur.fetchone()
 
+        is_new_restaurant = existing_restaurant is None
+
         if existing_restaurant:
             if logo_filename:
                 cur.execute("""
@@ -398,7 +463,12 @@ def restaurant_setup():
         conn.commit()
         conn.close()
 
-        flash("Restaurant profile saved successfully.", "success")
+        if is_new_restaurant or request.form.get("reset_menu") == "yes":
+            reset_menu_to_starter()
+            flash("Restaurant profile saved and starter menu was created.", "success")
+        else:
+            flash("Restaurant profile saved successfully.", "success")
+
         return redirect("/restaurant_setup")
 
     cur.execute("SELECT * FROM restaurants LIMIT 1")
@@ -772,6 +842,18 @@ def save_ai_menu_item():
     price = float(request.form["price"])
     description = request.form["description"]
 
+    generate_image = request.form.get("generate_image") == "yes"
+
+    image_filename = None
+
+    if generate_image:
+        image_filename = generate_ai_food_image(name, description, category)
+
+        if image_filename:
+            flash("AI image generated successfully.", "success")
+        else:
+            flash("Menu item was saved, but AI image generation failed.", "warning")
+
     conn = get_db()
     cur = conn.cursor()
 
@@ -783,7 +865,7 @@ def save_ai_menu_item():
         category,
         price,
         description,
-        None
+        image_filename
     ))
 
     conn.commit()
