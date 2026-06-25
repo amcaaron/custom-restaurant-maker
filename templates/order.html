@@ -6,25 +6,29 @@
 
 <div class="text-center mb-4">
 
-  {% if restaurant and restaurant['logo_filename'] %}
-      <img src="{{ url_for('static', filename='uploads/' + restaurant['logo_filename']) }}"
-           class="img-fluid mb-3"
-           style="max-height: 100px;">
-  {% endif %}
+    {% if restaurant and restaurant['logo_url'] %}
+        <img src="{{ restaurant['logo_url'] }}"
+             class="img-fluid mb-3"
+             style="max-height: 100px;">
+    {% elif restaurant and restaurant['logo_filename'] %}
+        <img src="{{ url_for('static', filename='uploads/' + restaurant['logo_filename']) }}"
+             class="img-fluid mb-3"
+             style="max-height: 100px;">
+    {% endif %}
 
-  <h1>
-      {% if restaurant %}
-          {{ restaurant['name'] }} Menu
-      {% else %}
-          Restaurant Menu
-      {% endif %}
-  </h1>
+    <h1>
+        {% if restaurant %}
+            {{ restaurant['name'] }} Menu
+        {% else %}
+            Restaurant Menu
+        {% endif %}
+    </h1>
 
-  {% if restaurant %}
-      <p class="lead">
-          {{ restaurant['description'] }}
-      </p>
-  {% endif %}
+    {% if restaurant %}
+        <p class="lead">
+            {{ restaurant['description'] }}
+        </p>
+    {% endif %}
 
 </div>
 
@@ -91,180 +95,81 @@
     <a href="/order" class="btn btn-secondary">All Menu</a>
 </div>
 
+<!-- ORGANIZE MENU ITEMS BY CATEGORY -->
+{% set appetizers = [] %}
+{% set entrees = [] %}
+{% set desserts = [] %}
+{% set beverages = [] %}
+
+{% for item in menu %}
+    {% if item['category'].lower() == 'appetizers' %}
+        {% set _ = appetizers.append(item) %}
+    {% elif item['category'].lower() == 'entrees' %}
+        {% set _ = entrees.append(item) %}
+    {% elif item['category'].lower() == 'desserts' %}
+        {% set _ = desserts.append(item) %}
+    {% elif item['category'].lower() == 'beverages' %}
+        {% set _ = beverages.append(item) %}
+    {% endif %}
+{% endfor %}
+
+<!-- REUSABLE MENU SECTION -->
+{% macro render_menu_section(title, items) %}
+    {% if items %}
+        <h2 class="section-title">{{ title }}</h2>
+
+        <div class="row">
+            {% for item in items %}
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100 shadow-sm">
+
+                        {% if item['image_url'] %}
+                            <img src="{{ item['image_url'] }}"
+                                 class="card-img-top"
+                                 style="height: 220px; object-fit: cover;">
+                        {% elif item['image_filename'] %}
+                            <img src="{{ url_for('static', filename='uploads/' + item['image_filename']) }}"
+                                 class="card-img-top"
+                                 style="height: 220px; object-fit: cover;">
+                        {% endif %}
+
+                        <div class="card-body">
+                            <h5 class="card-title">{{ item['name'] }}</h5>
+
+                            <p class="card-text">
+                                {{ item['description'] }}
+                            </p>
+
+                            <p>
+                                <strong>${{ "%.2f"|format(item['price']) }}</strong>
+                            </p>
+
+                            <label class="form-label">Quantity</label>
+
+                            <input
+                                type="number"
+                                class="form-control"
+                                name="quantity_{{ item['menu_id'] }}"
+                                value="0"
+                                min="0">
+                        </div>
+
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endmacro %}
+
 <form method="post" action="/order">
 
-    <!-- APPETIZERS -->
-    {% set appetizers = menu | selectattr("category", "equalto", "Appetizers") | list %}
-    {% set appetizers_lower = [] %}
+    {{ render_menu_section("🍤 Appetizers", appetizers) }}
 
-    <h2 class="section-title">🍤 Appetizers</h2>
+    {{ render_menu_section("🍽 Entrees", entrees) }}
 
-    <div class="row">
-        {% set has_appetizers = false %}
+    {{ render_menu_section("🍰 Desserts", desserts) }}
 
-        {% for item in menu %}
-            {% if item['category'].lower() == 'appetizers' %}
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100 shadow-sm">
-
-                        {% if item['image_filename'] %}
-                            <img src="{{ url_for('static', filename='uploads/' + item['image_filename']) }}"
-                                 class="card-img-top"
-                                 style="height: 220px; object-fit: cover;">
-                        {% endif %}
-
-                        <div class="card-body">
-                            <h5 class="card-title">{{ item['name'] }}</h5>
-
-                            <p class="card-text">
-                                {{ item['description'] }}
-                            </p>
-
-                            <p>
-                                <strong>${{ "%.2f"|format(item['price']) }}</strong>
-                            </p>
-
-                            <label class="form-label">Quantity</label>
-
-                            <input
-                                type="number"
-                                class="form-control"
-                                name="quantity_{{ item['menu_id'] }}"
-                                value="0"
-                                min="0">
-                        </div>
-
-                    </div>
-                </div>
-            {% endif %}
-        {% endfor %}
-    </div>
-
-    <!-- ENTREES -->
-    <h2 class="section-title">🍽 Entrees</h2>
-
-    <div class="row">
-        {% for item in menu %}
-            {% if item['category'].lower() == 'entrees' %}
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100 shadow-sm">
-
-                        {% if item['image_filename'] %}
-                            <img src="{{ url_for('static', filename='uploads/' + item['image_filename']) }}"
-                                 class="card-img-top"
-                                 style="height: 220px; object-fit: cover;">
-                        {% endif %}
-
-                        <div class="card-body">
-                            <h5 class="card-title">{{ item['name'] }}</h5>
-
-                            <p class="card-text">
-                                {{ item['description'] }}
-                            </p>
-
-                            <p>
-                                <strong>${{ "%.2f"|format(item['price']) }}</strong>
-                            </p>
-
-                            <label class="form-label">Quantity</label>
-
-                            <input
-                                type="number"
-                                class="form-control"
-                                name="quantity_{{ item['menu_id'] }}"
-                                value="0"
-                                min="0">
-                        </div>
-
-                    </div>
-                </div>
-            {% endif %}
-        {% endfor %}
-    </div>
-
-    <!-- DESSERTS -->
-    <h2 class="section-title">🍰 Desserts</h2>
-
-    <div class="row">
-        {% for item in menu %}
-            {% if item['category'].lower() == 'desserts' %}
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100 shadow-sm">
-
-                        {% if item['image_filename'] %}
-                            <img src="{{ url_for('static', filename='uploads/' + item['image_filename']) }}"
-                                 class="card-img-top"
-                                 style="height: 220px; object-fit: cover;">
-                        {% endif %}
-
-                        <div class="card-body">
-                            <h5 class="card-title">{{ item['name'] }}</h5>
-
-                            <p class="card-text">
-                                {{ item['description'] }}
-                            </p>
-
-                            <p>
-                                <strong>${{ "%.2f"|format(item['price']) }}</strong>
-                            </p>
-
-                            <label class="form-label">Quantity</label>
-
-                            <input
-                                type="number"
-                                class="form-control"
-                                name="quantity_{{ item['menu_id'] }}"
-                                value="0"
-                                min="0">
-                        </div>
-
-                    </div>
-                </div>
-            {% endif %}
-        {% endfor %}
-    </div>
-
-    <!-- BEVERAGES -->
-    <h2 class="section-title">🥤 Beverages</h2>
-
-    <div class="row">
-        {% for item in menu %}
-            {% if item['category'].lower() == 'beverages' %}
-                <div class="col-md-4 mb-4">
-                    <div class="card h-100 shadow-sm">
-
-                        {% if item['image_filename'] %}
-                            <img src="{{ url_for('static', filename='uploads/' + item['image_filename']) }}"
-                                 class="card-img-top"
-                                 style="height: 220px; object-fit: cover;">
-                        {% endif %}
-
-                        <div class="card-body">
-                            <h5 class="card-title">{{ item['name'] }}</h5>
-
-                            <p class="card-text">
-                                {{ item['description'] }}
-                            </p>
-
-                            <p>
-                                <strong>${{ "%.2f"|format(item['price']) }}</strong>
-                            </p>
-
-                            <label class="form-label">Quantity</label>
-
-                            <input
-                                type="number"
-                                class="form-control"
-                                name="quantity_{{ item['menu_id'] }}"
-                                value="0"
-                                min="0">
-                        </div>
-
-                    </div>
-                </div>
-            {% endif %}
-        {% endfor %}
-    </div>
+    {{ render_menu_section("🥤 Beverages", beverages) }}
 
     {% if not menu %}
         <div class="alert alert-info text-center">
@@ -272,12 +177,14 @@
         </div>
     {% endif %}
 
-    <div class="text-center mt-4 mb-5">
-        <input
-            type="submit"
-            value="Submit Order"
-            class="btn btn-success btn-lg">
-    </div>
+    {% if menu %}
+        <div class="text-center mt-4 mb-5">
+            <input
+                type="submit"
+                value="Submit Order"
+                class="btn btn-success btn-lg">
+        </div>
+    {% endif %}
 
 </form>
 

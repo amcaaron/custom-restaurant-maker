@@ -48,7 +48,14 @@
                         <input type="file" name="logo" class="form-control">
                     </div>
 
-                    {% if restaurant and restaurant['logo_filename'] %}
+                    {% if restaurant and restaurant['logo_url'] %}
+                        <div class="mb-3">
+                            <p>Current Logo:</p>
+                            <img src="{{ restaurant['logo_url'] }}"
+                                 style="max-height: 150px;"
+                                 class="img-thumbnail">
+                        </div>
+                    {% elif restaurant and restaurant['logo_filename'] %}
                         <div class="mb-3">
                             <p>Current Logo:</p>
                             <img src="{{ url_for('static', filename='uploads/' + restaurant['logo_filename']) }}"
@@ -59,10 +66,10 @@
 
                     <div class="form-check mb-3">
                         <input class="form-check-input"
-                            type="checkbox"
-                            name="reset_menu"
-                            value="yes"
-                            id="resetMenu">
+                               type="checkbox"
+                               name="reset_menu"
+                               value="yes"
+                               id="resetMenu">
 
                         <label class="form-check-label" for="resetMenu">
                             Reset menu to starter items

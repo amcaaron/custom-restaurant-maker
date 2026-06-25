@@ -3,6 +3,8 @@ import sqlite3
 import json
 import base64
 import uuid
+import cloudinary
+import cloudinary.uploader
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -15,6 +17,13 @@ from flask import Flask, render_template, request, redirect, session, flash, url
 load_dotenv()
 
 app = Flask(__name__)
+
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET")
+)
+
 app.secret_key = os.getenv("SECRET_KEY", "fallback-secret-key")
 
 database_url = os.getenv("DATABASE_URL", "sqlite:///project4.db")
@@ -42,6 +51,25 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+def upload_image_to_cloudinary(image_file, folder_name="restaurant_maker"):
+    if not image_file or image_file.filename == "":
+        return None
+
+    if not allowed_file(image_file.filename):
+        return None
+
+    try:
+        upload_result = cloudinary.uploader.upload(
+            image_file,
+            folder=folder_name,
+            resource_type="image"
+        )
+
+        return upload_result.get("secure_url")
+
+    except Exception as e:
+        print("Cloudinary upload failed:", e)
+        return None
 
 def get_restaurant():
     conn = get_db()
@@ -191,30 +219,30 @@ def admin():
 
     if request.method == "POST":
         image = request.files.get("image")
-        image_filename = None
 
-        if image and image.filename != "" and allowed_file(image.filename):
-            image_filename = secure_filename(image.filename)
-
-            os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
-
-            image_path = os.path.join(app.config["UPLOAD_FOLDER"], image_filename)
-            image.save(image_path)
+        # Upload image to Cloudinary instead of saving locally
+        image_url = upload_image_to_cloudinary(
+            image,
+            folder_name="restaurant_maker/menu"
+        )
 
         category = request.form["category"].capitalize()
 
         cur.execute("""
-            INSERT INTO menu (name, category, price, description, image_filename)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO menu 
+            (name, category, price, description, image_filename, image_url)
+            VALUES (?, ?, ?, ?, ?, ?)
         """, (
             request.form["name"],
             category,
             float(request.form["price"]),
             request.form["description"],
-            image_filename
+            None,
+            image_url
         ))
 
         conn.commit()
+        flash("Menu item added successfully.", "success")
 
     cur.execute("""
         SELECT *
@@ -571,12 +599,12 @@ def restaurant_setup():
         theme_color = request.form["theme_color"]
 
         logo = request.files.get("logo")
-        logo_filename = None
 
-        if logo and logo.filename != "" and allowed_file(logo.filename):
-            logo_filename = secure_filename(logo.filename)
-            os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
-            logo.save(os.path.join(app.config["UPLOAD_FOLDER"], logo_filename))
+        # Upload logo to Cloudinary instead of saving locally
+        logo_url = upload_image_to_cloudinary(
+            logo,
+            folder_name="restaurant_maker/logos"
+        )
 
         cur.execute("SELECT * FROM restaurants LIMIT 1")
         existing_restaurant = cur.fetchone()
@@ -584,16 +612,16 @@ def restaurant_setup():
         is_new_restaurant = existing_restaurant is None
 
         if existing_restaurant:
-            if logo_filename:
+            if logo_url:
                 cur.execute("""
                     UPDATE restaurants
-                    SET name = ?, description = ?, theme_color = ?, logo_filename = ?
+                    SET name = ?, description = ?, theme_color = ?, logo_url = ?
                     WHERE restaurant_id = ?
                 """, (
                     name,
                     description,
                     theme_color,
-                    logo_filename,
+                    logo_url,
                     existing_restaurant["restaurant_id"]
                 ))
             else:
@@ -610,12 +638,13 @@ def restaurant_setup():
         else:
             cur.execute("""
                 INSERT INTO restaurants
-                (name, description, logo_filename, theme_color, created_at)
-                VALUES (?, ?, ?, ?, ?)
+                (name, description, logo_filename, logo_url, theme_color, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
             """, (
                 name,
                 description,
-                logo_filename,
+                None,
+                logo_url,
                 theme_color,
                 datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             ))

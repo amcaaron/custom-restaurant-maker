@@ -6,7 +6,11 @@
 
 <section class="hero-section text-center">
 
-  {% if restaurant and restaurant['logo_filename'] %}
+  {% if restaurant and restaurant['logo_url'] %}
+      <img src="{{ restaurant['logo_url'] }}"
+           class="img-fluid mb-4"
+           style="max-height: 140px;">
+  {% elif restaurant and restaurant['logo_filename'] %}
       <img src="{{ url_for('static', filename='uploads/' + restaurant['logo_filename']) }}"
            class="img-fluid mb-4"
            style="max-height: 140px;">
@@ -72,9 +76,9 @@
         <div class="col-md-4 mb-4">
             <div class="card h-100 shadow-sm">
                 <div class="card-body text-center">
-                    <h5 class="card-title">Upload Food Images</h5>
+                    <h5 class="card-title">Cloud Image Storage</h5>
                     <p class="card-text">
-                        Attach images to menu items so the restaurant menu feels more realistic.
+                        Upload restaurant logos and menu images using cloud storage for production-ready image hosting.
                     </p>
                 </div>
             </div>
@@ -85,7 +89,7 @@
                 <div class="card-body text-center">
                     <h5 class="card-title">Place Orders</h5>
                     <p class="card-text">
-                        Customers can start an order, choose quantities, and view an order summary.
+                        Customers can create accounts, start orders, choose quantities, and view order history.
                     </p>
                 </div>
             </div>
