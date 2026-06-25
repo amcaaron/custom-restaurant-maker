@@ -1,16 +1,14 @@
 # Custom Restaurant Maker
 
-Custom Restaurant Maker is a full-stack Flask web application that allows restaurant owners/admins to customize a restaurant profile, manage menu items, upload food images, generate AI-powered menu ideas, and process customer orders through a checkout flow.
+Custom Restaurant Maker is a full-stack Flask web application that allows a restaurant admin to customize a restaurant profile, manage menu items, upload food images, generate AI-powered menu ideas, generate AI food images, accept customer orders, process payments through Stripe, and view restaurant analytics.
 
-This project was built as a portfolio-ready restaurant management and ordering platform using Flask, SQLite, Bootstrap, Jinja, REST-style API routes, and OpenAI API integration.
-
----
+This project was built as a portfolio-ready restaurant ordering and management platform using Flask, SQLAlchemy, PostgreSQL, Bootstrap, Jinja templates, Cloudinary, Stripe, OpenAI, and Render.
 
 ## Live Demo
 
-Live Site: https://custom-restaurant-maker.onrender.com
+**Live Site:** https://custom-restaurant-maker.onrender.com
 
-GitHub Repository: https://github.com/amcaaron/custom-restaurant-maker
+**GitHub Repository:** https://github.com/amcaaron/custom-restaurant-maker
 
 ---
 
@@ -19,23 +17,31 @@ GitHub Repository: https://github.com/amcaaron/custom-restaurant-maker
 ### Restaurant Customization
 
 * Create and update a restaurant profile
-* Add restaurant name, description, theme color, and logo
+* Add restaurant name, description, logo, and theme color
+* Dynamically apply the selected theme color across the app
+* Display restaurant branding on the homepage and order pages
 * Reset the menu back to starter/default menu items
-* Homepage dynamically displays restaurant branding
-* Starter menu encourages users to create their own custom menu
 
 ### Admin Authentication
 
 * Admin login and logout system
 * Protected admin dashboard
-* Password hashing using Werkzeug
+* Admin credentials stored securely through environment variables
 * Session-based authentication
 * Flash messages for login, logout, and protected routes
+
+### Customer Accounts
+
+* Customer registration
+* Customer login and logout
+* Customer-specific order history
+* Customers must be logged in before starting an order
+* Password hashing using Werkzeug security tools
 
 ### Menu Management
 
 * Add menu items manually through the admin panel
-* Upload images for menu items
+* Upload menu item images through Cloudinary
 * Organize menu items by category:
 
   * Appetizers
@@ -43,44 +49,59 @@ GitHub Repository: https://github.com/amcaaron/custom-restaurant-maker
   * Desserts
   * Beverages
 * View menu items in a Bootstrap card layout
-* Dynamically display menu items from the SQLite database
+* Menu items are stored in a PostgreSQL database on deployment
+* Menu images persist through Cloudinary instead of local file storage
 
 ### AI Menu Generator
 
 * Generate AI-powered menu item ideas based on a restaurant concept
 * Generate item name, category, price, and description
-* Save generated items directly to the real menu
+* Save generated AI items directly to the real menu
 * Optionally generate AI food images for menu items
-* Demo fallback mode if AI quota/API is unavailable
+* AI-generated images are uploaded to Cloudinary
+* Demo fallback mode is included if AI quota or API access is unavailable
 
 ### Customer Ordering Flow
 
-* Start an order as a new or existing customer
+* Register or log in as a customer
+* Start an order
 * Select menu item quantities
 * View order summary
-* Clear order and return to menu
-* Checkout with payment method selection
-* View order confirmation
-* Prevents users from ordering before starting a customer/order session
+* Clear order and return to the menu
+* Checkout through Stripe
+* View final order confirmation
+* View previous orders through customer order history
 
-### Checkout System
+### Checkout and Payment System
 
 * Calculates subtotal
 * Calculates NJ sales tax
 * Adds tip and delivery fee when applicable
-* Avoids adding tax, tip, and delivery fee for empty carts
-* Saves payment method and total amount
-* Displays final confirmation page
+* Prevents checkout for empty carts
+* Processes card payments through Stripe Checkout
+* Saves payment method, payment status, and total amount
+* Redirects customers to a confirmation page after successful payment
+
+### Admin Analytics Dashboard
+
+* View total paid orders
+* View total revenue
+* View average order value
+* View most popular menu items
+* View recent orders
+* View top customers by spending
 
 ### REST API Routes
 
-The project includes REST-style backend endpoints for menu management:
+The project includes REST-style backend endpoints for menu management.
 
-GET    /api/menu
-GET    /api/menu/<id>
-POST   /api/menu
-PUT    /api/menu/<id>
-DELETE /api/menu/<id>
+| Method | Endpoint              | Description                                   |
+| ------ | --------------------- | --------------------------------------------- |
+| GET    | `/api/menu`           | Get all menu items                            |
+| GET    | `/api/menu/<menu_id>` | Get one menu item                             |
+| POST   | `/api/menu`           | Create a new menu item                        |
+| PUT    | `/api/menu/<menu_id>` | Update a menu item                            |
+| DELETE | `/api/menu/<menu_id>` | Delete a menu item if it has not been ordered |
 
 These routes allow menu data to be retrieved, created, updated, and deleted using JSON requests.
 
@@ -92,10 +113,14 @@ These routes allow menu data to be retrieved, created, updated, and deleted usin
 
 * Python
 * Flask
-* SQLite
+* Flask-SQLAlchemy
+* PostgreSQL
+* SQLite for local development fallback
 * Jinja2
 * Werkzeug Security
 * OpenAI API
+* Stripe API
+* Cloudinary API
 
 ### Frontend
 
@@ -103,7 +128,8 @@ These routes allow menu data to be retrieved, created, updated, and deleted usin
 * CSS3
 * Bootstrap 5
 * Jinja Templates
-* Custom Styling
+* Custom CSS styling
+* Dynamic theme color support
 
 ### Tools and Deployment
 
@@ -111,44 +137,88 @@ These routes allow menu data to be retrieved, created, updated, and deleted usin
 * Git
 * GitHub
 * Render
-* Thunder Client
+* Render PostgreSQL
 * Gunicorn
+* Thunder Client / Postman
+* Cloudinary
+* Stripe Dashboard
 * OpenAI Platform
 
 ---
 
 ## Project Structure
 
-RestarantProject/
+```text
+custom-restaurant-maker/
 
 ├── app.py
-├── init_db.py
-├── project4.db
 ├── requirements.txt
 ├── Procfile
 ├── README.md
 ├── .gitignore
-
+├── project4.db
+│
 ├── static/
 │   ├── style.css
 │   └── uploads/
-
+│
 └── templates/
-├── admin.html
-├── ai_menu_generator.html
-├── appetizers.html
-├── base.html
-├── beverages.html
-├── checkout.html
-├── confirmation.html
-├── desserts.html
-├── entrees.html
-├── index.html
-├── login.html
-├── order.html
-├── order_summary.html
-├── restaurant_setup.html
-└── start_order.html
+    ├── admin.html
+    ├── admin_analytics.html
+    ├── ai_menu_generator.html
+    ├── base.html
+    ├── checkout.html
+    ├── confirmation.html
+    ├── customer_login.html
+    ├── index.html
+    ├── login.html
+    ├── order.html
+    ├── order_details.html
+    ├── order_history.html
+    ├── order_summary.html
+    ├── register.html
+    ├── restaurant_setup.html
+    └── start_order.html
+```
+
+---
+
+## Database Models
+
+The app uses SQLAlchemy models for:
+
+* Customers
+* Menu items
+* Orders
+* Order items
+* Restaurant profile
+
+In local development, the app can fall back to SQLite. In production, it uses PostgreSQL through Render.
+
+---
+
+## Environment Variables
+
+Create a `.env` file locally and add the following variables:
+
+```env
+SECRET_KEY=your_secret_key
+
+ADMIN_USERNAME=your_admin_username
+ADMIN_PASSWORD=your_admin_password
+
+DATABASE_URL=your_database_url_optional_for_local_postgres
+
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+
+STRIPE_SECRET_KEY=your_stripe_secret_key
+
+OPENAI_API_KEY=your_openai_api_key
+```
+
+For local SQLite development, `DATABASE_URL` can be left out. The app will use `project4.db` automatically.
 
 ---
 
@@ -156,61 +226,103 @@ RestarantProject/
 
 ### 1. Clone the Repository
 
+```bash
 git clone https://github.com/amcaaron/custom-restaurant-maker.git
-
 cd custom-restaurant-maker
+```
 
 ### 2. Create a Virtual Environment
 
+```bash
 python -m venv venv
+```
 
-Activate the environment:
+Activate the environment.
 
 Mac/Linux:
 
+```bash
 source venv/bin/activate
+```
 
 Windows:
 
+```bash
 venv\Scripts\activate
+```
 
 ### 3. Install Dependencies
 
+```bash
 pip install -r requirements.txt
+```
 
-### 4. Initialize the Database
+### 4. Create a `.env` File
 
-python init_db.py
+Create a file named `.env` in the root folder and add the required environment variables.
 
-### 5. Create a .env File
+Example:
 
-Create a file named:
+```env
+SECRET_KEY=your_secret_key
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=your_admin_password
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+STRIPE_SECRET_KEY=your_stripe_secret_key
+OPENAI_API_KEY=your_openai_api_key
+```
 
-.env
+### 5. Initialize the Database
 
-Add:
+```bash
+flask --app app init-db
+```
 
-OPENAI_API_KEY=your_openai_api_key_here
+You should see:
 
-### 6. Run the Application
+```text
+Database tables created successfully.
+```
 
+### 6. Run the Application Locally
+
+```bash
 python app.py
+```
 
 Open your browser and navigate to:
 
+```text
 http://127.0.0.1:5001/
+```
 
 ---
 
 ## Admin Login
 
-Demo Admin Credentials:
+Admin credentials are controlled through environment variables:
 
-Username: admin
+```env
+ADMIN_USERNAME=your_admin_username
+ADMIN_PASSWORD=your_admin_password
+```
 
-Password: password123
+For security, admin credentials should not be hardcoded in the source code or committed to GitHub.
 
-Note: These credentials should be changed before production deployment.
+---
+
+## Stripe Test Payment
+
+For testing checkout, use Stripe’s test card:
+
+```text
+Card Number: 4242 4242 4242 4242
+Expiration Date: Any future date
+CVC: Any 3 digits
+ZIP: Any ZIP code
+```
 
 ---
 
@@ -224,21 +336,28 @@ The REST API can be tested using:
 
 ### Get All Menu Items
 
+```bash
 curl http://127.0.0.1:5001/api/menu
+```
 
 ### Get One Menu Item
 
+```bash
 curl http://127.0.0.1:5001/api/menu/1
+```
 
 ### Example JSON for Creating a Menu Item
 
+```json
 {
-"name": "Test Fries",
-"category": "Appetizers",
-"price": 5.99,
-"description": "Crispy fries created through the API",
-"image_filename": null
+  "name": "Test Fries",
+  "category": "Appetizers",
+  "price": 5.99,
+  "description": "Crispy fries created through the API",
+  "image_filename": null,
+  "image_url": null
 }
+```
 
 ---
 
@@ -250,64 +369,130 @@ This project is deployed using Render.
 
 Build Command:
 
+```bash
 pip install -r requirements.txt
+```
 
 Start Command:
 
-gunicorn app:app
+```bash
+gunicorn app:app --timeout 180 --workers 1
+```
+
+The extended timeout is used because AI food image generation can take longer than a standard request.
+
+### Render Environment Variables
+
+The deployed Render web service should include:
+
+```env
+SECRET_KEY=your_secret_key
+ADMIN_USERNAME=your_admin_username
+ADMIN_PASSWORD=your_admin_password
+DATABASE_URL=your_render_postgresql_internal_database_url
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+STRIPE_SECRET_KEY=your_stripe_secret_key
+OPENAI_API_KEY=your_openai_api_key
+```
+
+### Database Setup on Render
+
+After connecting the Render PostgreSQL database, initialize the production database with:
+
+```bash
+flask --app app init-db
+```
+
+If shell access is unavailable, this can be run temporarily through the Render build command:
+
+```bash
+pip install -r requirements.txt && flask --app app init-db
+```
+
+After the tables are created, the build command should be changed back to:
+
+```bash
+pip install -r requirements.txt
+```
 
 ---
 
-## Important Deployment Notes
+## Production Notes
 
-This project currently uses:
+This project uses:
 
-* SQLite
-* Local image uploads
+* PostgreSQL for persistent production data
+* Cloudinary for persistent image storage
+* Stripe Checkout for payment processing
+* OpenAI for menu and image generation
+* Render for deployment
 
-Because Render's free tier uses an ephemeral filesystem:
+Local uploaded files are not relied on in production because Render’s filesystem can be temporary. Images are stored through Cloudinary instead.
 
-* Uploaded images may not persist permanently after redeployments
-* Database changes made directly on the deployed application may not survive redeployments
+---
 
-For production use, recommended upgrades include:
+## Current Limitations
 
-* PostgreSQL database
-* Cloudinary image storage
-* AWS S3 image storage
-* Persistent cloud database hosting
+This version is designed as a single-restaurant platform.
+
+That means:
+
+* One admin controls the restaurant profile
+* One shared restaurant menu is used
+* Multiple customers can register and place orders
+* Customers do not each get their own restaurant
+
+A future version could add multi-restaurant support where each restaurant owner has their own restaurant profile, menu, orders, and analytics.
 
 ---
 
 ## Future Improvements
 
-Potential future enhancements:
+Potential future enhancements include:
 
-* Customer account registration
-* Customer login system
-* PostgreSQL integration
-* Cloud image storage
-* Stripe payment processing
-* Restaurant analytics dashboard
-* Menu search and filtering
-* Order history page
-* Multiple restaurant support
-* AI-generated restaurant themes
-* AI-generated menu categories
-* Enhanced AI customization controls
+* Multi-restaurant / multi-owner support
+* Owner registration and role-based permissions
+* Stripe webhooks for more production-grade payment confirmation
+* Better order status tracking
+* Email receipts
+* Customer profile editing
+* Admin order management dashboard
+* Unit and integration tests
+* Custom 404 and 500 error pages
+* Background job processing for AI image generation
+* More advanced AI customization controls
 
 ---
 
 ## Key Skills Demonstrated
 
-* Flask backend development
-* SQLite database design
-* CRUD operations
-* Authentication and session management
-* REST API development
-* File and image uploads
-* OpenAI API integration
-* Bootstrap UI development
-* Deployment with Render
-* Git and GitHub workflow
 * Full-stack web development
+* Flask backend development
+* SQLAlchemy ORM design
+* PostgreSQL database integration
+* Customer authentication
+* Admin authentication
+* Password hashing
+* Session management
+* CRUD operations
+* REST API development
+* Cloudinary image storage
+* Stripe payment integration
+* OpenAI API integration
+* AI-generated content and image workflows
+* Bootstrap UI development
+* Jinja templating
+* Render deployment
+* Environment variable management
+* Git and GitHub workflow
+
+---
+
+## Project Summary
+
+Custom Restaurant Maker is a deployed full-stack restaurant ordering platform that combines restaurant customization, admin menu management, customer ordering, payment processing, analytics, image storage, and AI-powered menu generation into one web application.
+
+The project demonstrates practical backend development, database design, API development, third-party service integration, production deployment, and user-focused full-stack design.
+
