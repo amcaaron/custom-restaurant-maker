@@ -226,27 +226,34 @@ def admin():
 
 @app.route("/start_order", methods=["GET", "POST"])
 def start_order():
+    if not session.get("customer_id"):
+        flash("Please log in before starting an order.", "warning")
+        return redirect(url_for("customer_login"))
+
+    customer_id = session["customer_id"]
+
     if request.method == "POST":
         conn = get_db()
         cur = conn.cursor()
-        if request.form["type"] == "new":
-            cur.execute("INSERT INTO customers (name, street_address, city, state, zip_code, phone_number) VALUES (?, ?, ?, ?, ?, ?)",
-                        (request.form["name"], request.form["street_address"], request.form["city"], request.form["state"], request.form["zip_code"], request.form["phone_number"]))
-            customer_id = cur.lastrowid
-        else:
-            cur.execute("SELECT customer_id FROM customers WHERE name = ?", (request.form["name"],))
-            row = cur.fetchone()
-            if row:
-                customer_id = row["customer_id"]
-            else:
-                return "Customer not found"
+
         order_number = "ABC" + datetime.now().strftime('%Y%m%d%H%M%S')
         date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        cur.execute("INSERT INTO orders (customer_id, order_number, date_time) VALUES (?, ?, ?)",
-                    (customer_id, order_number, date_time))
+
+        cur.execute(
+            """
+            INSERT INTO orders (customer_id, order_number, date_time)
+            VALUES (?, ?, ?)
+            """,
+            (customer_id, order_number, date_time)
+        )
+
         conn.commit()
+        conn.close()
+
         session["order_number"] = order_number
+
         return redirect("/order")
+
     return render_template("start_order.html")
 
 @app.route("/order", methods=["GET", "POST"])
@@ -359,42 +366,138 @@ def order_summary():
         delivery_fee=delivery_fee,
         total=total
     )
-@app.route("/login", methods=["GET", "POST"])
-def login():
+
+@app.route("/order-history")
+def order_history():
+    if not session.get("customer_id"):
+        flash("Please log in to view your order history.", "warning")
+        return redirect(url_for("customer_login"))
+
+    customer_id = session["customer_id"]
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT order_id, order_number, date_time, status, payment_method, total_amount
+        FROM orders
+        WHERE customer_id = ?
+        ORDER BY date_time DESC
+    """, (customer_id,))
+
+    orders = cur.fetchall()
+    conn.close()
+
+    return render_template("order_history.html", orders=orders)
+
+@app.route("/order-history/<int:order_id>")
+def order_details(order_id):
+    if not session.get("customer_id"):
+        flash("Please log in to view order details.", "warning")
+        return redirect(url_for("customer_login"))
+
+    customer_id = session["customer_id"]
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT *
+        FROM orders
+        WHERE order_id = ? AND customer_id = ?
+    """, (order_id, customer_id))
+
+    order = cur.fetchone()
+
+    if not order:
+        conn.close()
+        flash("Order not found.", "warning")
+        return redirect("/order-history")
+
+    cur.execute("""
+        SELECT m.name, m.price, oi.quantity, (m.price * oi.quantity) AS total_price
+        FROM order_items oi
+        JOIN menu m ON m.menu_id = oi.menu_id
+        WHERE oi.order_number = ?
+    """, (order["order_number"],))
+
+    items = cur.fetchall()
+    conn.close()
+
+    return render_template("order_details.html", order=order, items=items)
+
+@app.route("/customer-login", methods=["GET", "POST"])
+def customer_login():
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
+        email = request.form.get("email")
+        password = request.form.get("password")
 
         conn = get_db()
-        cur = conn.cursor()
-
-        cur.execute("""
-            SELECT *
-            FROM admins
-            WHERE username = ?
-        """, (username,))
-
-        admin = cur.fetchone()
+        customer = conn.execute(
+            "SELECT * FROM customers WHERE email = ?",
+            (email,)
+        ).fetchone()
         conn.close()
 
-        if admin and check_password_hash(admin["password_hash"], password):
-            session["admin_logged_in"] = True
-            session["admin_username"] = admin["username"]
+        if customer and check_password_hash(customer["password_hash"], password):
+            session["customer_id"] = customer["customer_id"]
+            session["customer_name"] = customer["name"]
+            flash("Logged in successfully.")
+            return redirect(url_for("index"))
 
-            flash("Login successful.", "success")
-            return redirect("/admin")
-        else:
-            flash("Invalid username or password.", "danger")
+        flash("Invalid email or password.")
+        return redirect(url_for("customer_login"))
 
-    return render_template("login.html")
+    return render_template("customer_login.html")
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        name = request.form.get("name")
+        email = request.form.get("email")
+        password = request.form.get("password")
+        phone_number = request.form.get("phone_number")
+        street_address = request.form.get("street_address")
+        city = request.form.get("city")
+        state = request.form.get("state")
+        zip_code = request.form.get("zip_code")
+
+        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        password_hash = generate_password_hash(password)
+
+        conn = get_db()
+        conn.execute(
+            """
+            INSERT INTO customers 
+            (name, email, password_hash, phone_number, street_address, city, state, zip_code, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (name, email, password_hash, phone_number, street_address, city, state, zip_code, created_at)
+        )
+        conn.commit()
+        conn.close()
+
+        flash("Account created successfully. Please log in.")
+        return redirect(url_for("customer_login"))
+
+    return render_template("register.html")
 
 @app.route("/logout")
 def logout():
-    session.pop("admin_logged_in", None)
-    session.pop("admin_username", None)
+    session.pop("customer_id", None)
+    session.pop("customer_name", None)
 
     flash("You have been logged out.", "info")
     return redirect("/")
+
+@app.route("/admin-logout")
+def admin_logout():
+    session.pop("admin_logged_in", None)
+    session.pop("admin_username", None)
+
+    flash("Admin has been logged out.", "info")
+    return redirect("/login")
 
 @app.route("/restaurant_setup", methods=["GET", "POST"])
 def restaurant_setup():

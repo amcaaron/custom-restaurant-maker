@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Order Details{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2>Order Details</h2>
+
+    <div class="card shadow mt-4">
+        <div class="card-body">
+
+            <h5>Order #{{ order["order_number"] }}</h5>
+            <p><strong>Date:</strong> {{ order["date_time"] }}</p>
+            <p><strong>Status:</strong> {{ order["status"] or "Pending" }}</p>
+            <p><strong>Payment Method:</strong> {{ order["payment_method"] or "N/A" }}</p>
+
+            <hr>
+
+            <h5>Items</h5>
+
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Price</th>
+                        <th>Quantity</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>{{ item["name"] }}</td>
+                        <td>${{ "%.2f"|format(item["price"]) }}</td>
+                        <td>{{ item["quantity"] }}</td>
+                        <td>${{ "%.2f"|format(item["total_price"]) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            {% if order["total_amount"] %}
+                <h4 class="text-end">
+                    Total: ${{ "%.2f"|format(order["total_amount"]) }}
+                </h4>
+            {% endif %}
+
+            <a href="/order-history" class="btn btn-secondary mt-3">
+                Back to Order History
+            </a>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
