@@ -152,26 +152,46 @@ def get_restaurant():
     return restaurant
 
 def reset_menu_to_starter():
-    conn = get_db()
-    cur = conn.cursor()
-
     starter_menu = [
-        ("Starter Bites", "Appetizers", 6.99, "A customizable appetizer for your restaurant.", None),
-        ("Signature Entree", "Entrees", 12.99, "A main dish that can be replaced with your own specialty.", None),
-        ("House Dessert", "Desserts", 5.99, "A simple dessert placeholder for your custom menu.", None),
-        ("House Drink", "Beverages", 2.99, "A starter beverage item for your menu.", None)
+        Menu(
+            name="Starter Bites",
+            category="Appetizers",
+            price=6.99,
+            description="A customizable appetizer for your restaurant.",
+            image_filename=None,
+            image_url=None
+        ),
+        Menu(
+            name="Signature Entree",
+            category="Entrees",
+            price=12.99,
+            description="A main dish that can be replaced with your own specialty.",
+            image_filename=None,
+            image_url=None
+        ),
+        Menu(
+            name="House Dessert",
+            category="Desserts",
+            price=5.99,
+            description="A simple dessert placeholder for your custom menu.",
+            image_filename=None,
+            image_url=None
+        ),
+        Menu(
+            name="House Drink",
+            category="Beverages",
+            price=2.99,
+            description="A starter beverage item for your menu.",
+            image_filename=None,
+            image_url=None
+        )
     ]
 
-    cur.execute("DELETE FROM order_items")
-    cur.execute("DELETE FROM menu")
+    OrderItem.query.delete()
+    Menu.query.delete()
 
-    cur.executemany("""
-        INSERT INTO menu (name, category, price, description, image_filename)
-        VALUES (?, ?, ?, ?, ?)
-    """, starter_menu)
-
-    conn.commit()
-    conn.close()
+    db.session.add_all(starter_menu)
+    db.session.commit()
 
 def menu_item_to_dict(item):
     return {
@@ -632,9 +652,6 @@ def restaurant_setup():
         flash("Please log in to customize restaurant settings.", "warning")
         return redirect("/login")
 
-    conn = get_db()
-    cur = conn.cursor()
-
     if request.method == "POST":
         name = request.form["name"]
         description = request.form["description"]
@@ -642,57 +659,36 @@ def restaurant_setup():
 
         logo = request.files.get("logo")
 
-        # Upload logo to Cloudinary instead of saving locally
         logo_url = upload_image_to_cloudinary(
             logo,
             folder_name="restaurant_maker/logos"
         )
 
-        cur.execute("SELECT * FROM restaurants LIMIT 1")
-        existing_restaurant = cur.fetchone()
+        restaurant = Restaurant.query.first()
+        is_new_restaurant = restaurant is None
 
-        is_new_restaurant = existing_restaurant is None
+        if restaurant:
+            restaurant.name = name
+            restaurant.description = description
+            restaurant.theme_color = theme_color
 
-        if existing_restaurant:
             if logo_url:
-                cur.execute("""
-                    UPDATE restaurants
-                    SET name = ?, description = ?, theme_color = ?, logo_url = ?
-                    WHERE restaurant_id = ?
-                """, (
-                    name,
-                    description,
-                    theme_color,
-                    logo_url,
-                    existing_restaurant["restaurant_id"]
-                ))
-            else:
-                cur.execute("""
-                    UPDATE restaurants
-                    SET name = ?, description = ?, theme_color = ?
-                    WHERE restaurant_id = ?
-                """, (
-                    name,
-                    description,
-                    theme_color,
-                    existing_restaurant["restaurant_id"]
-                ))
-        else:
-            cur.execute("""
-                INSERT INTO restaurants
-                (name, description, logo_filename, logo_url, theme_color, created_at)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (
-                name,
-                description,
-                None,
-                logo_url,
-                theme_color,
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            ))
+                restaurant.logo_url = logo_url
+                restaurant.logo_filename = None
 
-        conn.commit()
-        conn.close()
+        else:
+            restaurant = Restaurant(
+                name=name,
+                description=description,
+                theme_color=theme_color,
+                logo_url=logo_url,
+                logo_filename=None,
+                created_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            )
+
+            db.session.add(restaurant)
+
+        db.session.commit()
 
         if is_new_restaurant or request.form.get("reset_menu") == "yes":
             reset_menu_to_starter()
@@ -702,10 +698,7 @@ def restaurant_setup():
 
         return redirect("/restaurant_setup")
 
-    cur.execute("SELECT * FROM restaurants LIMIT 1")
-    restaurant = cur.fetchone()
-
-    conn.close()
+    restaurant = Restaurant.query.first()
 
     return render_template("restaurant_setup.html", restaurant=restaurant)
 
@@ -1209,68 +1202,77 @@ def admin_analytics():
         flash("Please log in to view analytics.", "warning")
         return redirect("/login")
 
-    conn = get_db()
-    cur = conn.cursor()
+    # Total orders, revenue, and average order value
+    total_orders = (
+        db.session.query(db.func.count(Order.order_id))
+        .filter(Order.status == "Paid")
+        .scalar()
+    ) or 0
 
-    # Total orders and revenue
-    cur.execute("""
-        SELECT 
-            COUNT(*) AS total_orders,
-            COALESCE(SUM(total_amount), 0) AS total_revenue,
-            COALESCE(AVG(total_amount), 0) AS average_order_value
-        FROM orders
-        WHERE status = 'Paid'
-    """)
-    summary = cur.fetchone()
+    total_revenue = (
+        db.session.query(db.func.coalesce(db.func.sum(Order.total_amount), 0))
+        .filter(Order.status == "Paid")
+        .scalar()
+    ) or 0
+
+    average_order_value = (
+        db.session.query(db.func.coalesce(db.func.avg(Order.total_amount), 0))
+        .filter(Order.status == "Paid")
+        .scalar()
+    ) or 0
+
+    summary = {
+        "total_orders": total_orders,
+        "total_revenue": total_revenue,
+        "average_order_value": average_order_value
+    }
 
     # Most popular menu items
-    cur.execute("""
-        SELECT 
-            m.name,
-            m.category,
-            SUM(oi.quantity) AS total_sold,
-            SUM(oi.quantity * m.price) AS item_revenue
-        FROM order_items oi
-        JOIN menu m ON oi.menu_id = m.menu_id
-        GROUP BY m.menu_id, m.name, m.category
-        ORDER BY total_sold DESC
-        LIMIT 5
-    """)
-    popular_items = cur.fetchall()
+    popular_items = (
+        db.session.query(
+            Menu.name.label("name"),
+            Menu.category.label("category"),
+            db.func.sum(OrderItem.quantity).label("total_sold"),
+            db.func.sum(OrderItem.quantity * Menu.price).label("item_revenue")
+        )
+        .join(OrderItem, Menu.menu_id == OrderItem.menu_id)
+        .group_by(Menu.menu_id, Menu.name, Menu.category)
+        .order_by(db.func.sum(OrderItem.quantity).desc())
+        .limit(5)
+        .all()
+    )
 
     # Recent orders
-    cur.execute("""
-        SELECT 
-            o.order_number,
-            o.date_time,
-            o.status,
-            o.payment_method,
-            o.total_amount,
-            c.name AS customer_name
-        FROM orders o
-        JOIN customers c ON o.customer_id = c.customer_id
-        ORDER BY o.date_time DESC
-        LIMIT 10
-    """)
-    recent_orders = cur.fetchall()
+    recent_orders = (
+        db.session.query(
+            Order.order_number.label("order_number"),
+            Order.date_time.label("date_time"),
+            Order.status.label("status"),
+            Order.payment_method.label("payment_method"),
+            Order.total_amount.label("total_amount"),
+            Customer.name.label("customer_name")
+        )
+        .join(Customer, Order.customer_id == Customer.customer_id)
+        .order_by(Order.date_time.desc())
+        .limit(10)
+        .all()
+    )
 
     # Top customers by spending
-    cur.execute("""
-        SELECT 
-            c.name,
-            c.email,
-            COUNT(o.order_id) AS order_count,
-            COALESCE(SUM(o.total_amount), 0) AS total_spent
-        FROM customers c
-        JOIN orders o ON c.customer_id = o.customer_id
-        WHERE o.status = 'Paid'
-        GROUP BY c.customer_id, c.name, c.email
-        ORDER BY total_spent DESC
-        LIMIT 5
-    """)
-    top_customers = cur.fetchall()
-
-    conn.close()
+    top_customers = (
+        db.session.query(
+            Customer.name.label("name"),
+            Customer.email.label("email"),
+            db.func.count(Order.order_id).label("order_count"),
+            db.func.coalesce(db.func.sum(Order.total_amount), 0).label("total_spent")
+        )
+        .join(Order, Customer.customer_id == Order.customer_id)
+        .filter(Order.status == "Paid")
+        .group_by(Customer.customer_id, Customer.name, Customer.email)
+        .order_by(db.func.coalesce(db.func.sum(Order.total_amount), 0).desc())
+        .limit(5)
+        .all()
+    )
 
     return render_template(
         "admin_analytics.html",
