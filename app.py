@@ -136,6 +136,11 @@ def upload_image_to_cloudinary(image_file, folder_name="restaurant_maker"):
 def get_restaurant():
     return Restaurant.query.first()
 
+@app.context_processor
+def inject_restaurant():
+    restaurant = get_restaurant()
+    return {"restaurant": restaurant}
+
 def reset_menu_to_starter():
     starter_menu = [
         Menu(

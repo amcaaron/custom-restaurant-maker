@@ -8,6 +8,35 @@
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+
+    <style>
+        :root {
+            --theme-color: {{ restaurant.theme_color if restaurant and restaurant.theme_color else "#0d6efd" }};
+        }
+    
+        .navbar {
+            background-color: var(--theme-color) !important;
+        }
+    
+        .btn-primary {
+            background-color: var(--theme-color) !important;
+            border-color: var(--theme-color) !important;
+        }
+    
+        .text-primary {
+            color: var(--theme-color) !important;
+        }
+    
+        .border-primary {
+            border-color: var(--theme-color) !important;
+        }
+    
+        .card-header {
+            background-color: var(--theme-color);
+            color: white;
+        }
+    </style>
+
 </head>
 
 <body>
