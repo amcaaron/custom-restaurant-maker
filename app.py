@@ -1046,5 +1046,82 @@ def clear_ai_items():
     flash("Generated AI items cleared.", "info")
     return redirect("/ai_menu_generator")
 
+@app.route("/admin/analytics")
+def admin_analytics():
+    if not session.get("admin_logged_in"):
+        flash("Please log in to view analytics.", "warning")
+        return redirect("/login")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    # Total orders and revenue
+    cur.execute("""
+        SELECT 
+            COUNT(*) AS total_orders,
+            COALESCE(SUM(total_amount), 0) AS total_revenue,
+            COALESCE(AVG(total_amount), 0) AS average_order_value
+        FROM orders
+        WHERE status = 'Paid'
+    """)
+    summary = cur.fetchone()
+
+    # Most popular menu items
+    cur.execute("""
+        SELECT 
+            m.name,
+            m.category,
+            SUM(oi.quantity) AS total_sold,
+            SUM(oi.quantity * m.price) AS item_revenue
+        FROM order_items oi
+        JOIN menu m ON oi.menu_id = m.menu_id
+        GROUP BY m.menu_id, m.name, m.category
+        ORDER BY total_sold DESC
+        LIMIT 5
+    """)
+    popular_items = cur.fetchall()
+
+    # Recent orders
+    cur.execute("""
+        SELECT 
+            o.order_number,
+            o.date_time,
+            o.status,
+            o.payment_method,
+            o.total_amount,
+            c.name AS customer_name
+        FROM orders o
+        JOIN customers c ON o.customer_id = c.customer_id
+        ORDER BY o.date_time DESC
+        LIMIT 10
+    """)
+    recent_orders = cur.fetchall()
+
+    # Top customers by spending
+    cur.execute("""
+        SELECT 
+            c.name,
+            c.email,
+            COUNT(o.order_id) AS order_count,
+            COALESCE(SUM(o.total_amount), 0) AS total_spent
+        FROM customers c
+        JOIN orders o ON c.customer_id = o.customer_id
+        WHERE o.status = 'Paid'
+        GROUP BY c.customer_id, c.name, c.email
+        ORDER BY total_spent DESC
+        LIMIT 5
+    """)
+    top_customers = cur.fetchall()
+
+    conn.close()
+
+    return render_template(
+        "admin_analytics.html",
+        summary=summary,
+        popular_items=popular_items,
+        recent_orders=recent_orders,
+        top_customers=top_customers
+    )
+
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
