@@ -29,7 +29,12 @@ app.secret_key = os.getenv("SECRET_KEY", "fallback-secret-key")
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
-database_url = os.getenv("DATABASE_URL", "sqlite:///project4.db")
+basedir = os.path.abspath(os.path.dirname(__file__))
+
+database_url = os.getenv("DATABASE_URL")
+
+if not database_url:
+    database_url = "sqlite:///" + os.path.join(basedir, "project4.db")
 
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
@@ -38,6 +43,67 @@ app.config["SQLALCHEMY_DATABASE_URI"] = database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
+
+class Customer(db.Model):
+    __tablename__ = "customers"
+
+    customer_id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    street_address = db.Column(db.String(200))
+    city = db.Column(db.String(100))
+    state = db.Column(db.String(50))
+    zip_code = db.Column(db.String(20))
+    phone_number = db.Column(db.String(30))
+    email = db.Column(db.String(150), unique=True)
+    password_hash = db.Column(db.Text)
+    created_at = db.Column(db.String(50))
+
+
+class Menu(db.Model):
+    __tablename__ = "menu"
+
+    menu_id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    category = db.Column(db.String(100), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    description = db.Column(db.Text)
+    image_filename = db.Column(db.String(255))
+    image_url = db.Column(db.Text)
+
+
+class Order(db.Model):
+    __tablename__ = "orders"
+
+    order_id = db.Column(db.Integer, primary_key=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey("customers.customer_id"))
+    order_number = db.Column(db.String(100), unique=True, nullable=False)
+    date_time = db.Column(db.String(50))
+    status = db.Column(db.String(50))
+    payment_method = db.Column(db.String(50))
+    total_amount = db.Column(db.Float)
+    stripe_session_id = db.Column(db.String(255))
+    stripe_payment_status = db.Column(db.String(100))
+
+
+class OrderItem(db.Model):
+    __tablename__ = "order_items"
+
+    order_item_id = db.Column(db.Integer, primary_key=True)
+    order_number = db.Column(db.String(100), nullable=False)
+    menu_id = db.Column(db.Integer, db.ForeignKey("menu.menu_id"))
+    quantity = db.Column(db.Integer, nullable=False)
+
+
+class Restaurant(db.Model):
+    __tablename__ = "restaurants"
+
+    restaurant_id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    description = db.Column(db.Text)
+    logo_filename = db.Column(db.String(255))
+    logo_url = db.Column(db.Text)
+    theme_color = db.Column(db.String(20))
+    created_at = db.Column(db.String(50))
 
 UPLOAD_FOLDER = "static/uploads"
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
@@ -265,6 +331,17 @@ def admin():
     conn.close()
 
     return render_template("admin.html", menu=menu)
+
+@app.route("/create-tables")
+def create_tables():
+    if not session.get("admin_logged_in"):
+        flash("Please log in as admin first.", "warning")
+        return redirect("/login")
+
+    db.create_all()
+
+    flash("Database tables created successfully.", "success")
+    return redirect("/")
 
 @app.route("/start_order", methods=["GET", "POST"])
 def start_order():
@@ -520,20 +597,15 @@ def customer_login():
         email = request.form.get("email")
         password = request.form.get("password")
 
-        conn = get_db()
-        customer = conn.execute(
-            "SELECT * FROM customers WHERE email = ?",
-            (email,)
-        ).fetchone()
-        conn.close()
+        customer = Customer.query.filter_by(email=email).first()
 
-        if customer and check_password_hash(customer["password_hash"], password):
-            session["customer_id"] = customer["customer_id"]
-            session["customer_name"] = customer["name"]
-            flash("Logged in successfully.")
+        if customer and check_password_hash(customer.password_hash, password):
+            session["customer_id"] = customer.customer_id
+            session["customer_name"] = customer.name
+            flash("Logged in successfully.", "success")
             return redirect(url_for("index"))
 
-        flash("Invalid email or password.")
+        flash("Invalid email or password.", "danger")
         return redirect(url_for("customer_login"))
 
     return render_template("customer_login.html")
@@ -550,23 +622,35 @@ def register():
         state = request.form.get("state")
         zip_code = request.form.get("zip_code")
 
-        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if not name or not email or not password:
+            flash("Name, email, and password are required.", "warning")
+            return redirect(url_for("register"))
+
+        existing_customer = Customer.query.filter_by(email=email).first()
+
+        if existing_customer:
+            flash("An account with that email already exists.", "danger")
+            return redirect(url_for("register"))
 
         password_hash = generate_password_hash(password)
+        created_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        conn = get_db()
-        conn.execute(
-            """
-            INSERT INTO customers 
-            (name, email, password_hash, phone_number, street_address, city, state, zip_code, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (name, email, password_hash, phone_number, street_address, city, state, zip_code, created_at)
+        new_customer = Customer(
+            name=name,
+            email=email,
+            password_hash=password_hash,
+            phone_number=phone_number,
+            street_address=street_address,
+            city=city,
+            state=state,
+            zip_code=zip_code,
+            created_at=created_at
         )
-        conn.commit()
-        conn.close()
 
-        flash("Account created successfully. Please log in.")
+        db.session.add(new_customer)
+        db.session.commit()
+
+        flash("Account created successfully. Please log in.", "success")
         return redirect(url_for("customer_login"))
 
     return render_template("register.html")
