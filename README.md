@@ -6,7 +6,7 @@ This project was built as a portfolio-ready restaurant ordering and management p
 
 ## Live Demo
 
-**Live Site:** https://custom-restaurant-maker.onrender.com
+**Live Site:** https://customizable-restaurant-maker.onrender.com
 
 **GitHub Repository:** https://github.com/amcaaron/custom-restaurant-maker
 
