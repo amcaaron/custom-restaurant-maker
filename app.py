@@ -276,20 +276,15 @@ def beverages():
 
     return render_template('beverages.html', menu=menu)
 
-
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
     if not session.get("admin_logged_in"):
         flash("Please log in to access the admin panel.", "warning")
         return redirect("/login")
 
-    conn = get_db()
-    cur = conn.cursor()
-
     if request.method == "POST":
         image = request.files.get("image")
 
-        # Upload image to Cloudinary instead of saving locally
         image_url = upload_image_to_cloudinary(
             image,
             folder_name="restaurant_maker/menu"
@@ -297,38 +292,35 @@ def admin():
 
         category = request.form["category"].capitalize()
 
-        cur.execute("""
-            INSERT INTO menu 
-            (name, category, price, description, image_filename, image_url)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, (
-            request.form["name"],
-            category,
-            float(request.form["price"]),
-            request.form["description"],
-            None,
-            image_url
-        ))
+        new_menu_item = Menu(
+            name=request.form["name"],
+            category=category,
+            price=float(request.form["price"]),
+            description=request.form["description"],
+            image_filename=None,
+            image_url=image_url
+        )
 
-        conn.commit()
+        db.session.add(new_menu_item)
+        db.session.commit()
+
         flash("Menu item added successfully.", "success")
+        return redirect("/admin")
 
-    cur.execute("""
-        SELECT *
-        FROM menu
-        ORDER BY
-            CASE LOWER(category)
-                WHEN 'appetizers' THEN 1
-                WHEN 'entrees' THEN 2
-                WHEN 'desserts' THEN 3
-                WHEN 'beverages' THEN 4
-                ELSE 5
-            END,
-            name
-    """)
-
-    menu = cur.fetchall()
-    conn.close()
+    menu = (
+        Menu.query
+        .order_by(
+            db.case(
+                (db.func.lower(Menu.category) == "appetizers", 1),
+                (db.func.lower(Menu.category) == "entrees", 2),
+                (db.func.lower(Menu.category) == "desserts", 3),
+                (db.func.lower(Menu.category) == "beverages", 4),
+                else_=5
+            ),
+            Menu.name
+        )
+        .all()
+    )
 
     return render_template("admin.html", menu=menu)
 
@@ -352,22 +344,20 @@ def start_order():
     customer_id = session["customer_id"]
 
     if request.method == "POST":
-        conn = get_db()
-        cur = conn.cursor()
+        order_number = "ABC" + datetime.now().strftime("%Y%m%d%H%M%S")
+        date_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        order_number = "ABC" + datetime.now().strftime('%Y%m%d%H%M%S')
-        date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
-        cur.execute(
-            """
-            INSERT INTO orders (customer_id, order_number, date_time)
-            VALUES (?, ?, ?)
-            """,
-            (customer_id, order_number, date_time)
+        new_order = Order(
+            customer_id=customer_id,
+            order_number=order_number,
+            date_time=date_time,
+            status="Started",
+            payment_method=None,
+            total_amount=0
         )
 
-        conn.commit()
-        conn.close()
+        db.session.add(new_order)
+        db.session.commit()
 
         session["order_number"] = order_number
 
@@ -383,20 +373,12 @@ def order():
         flash("Please start an order before choosing menu items.", "warning")
         return redirect("/start_order")
 
-    conn = get_db()
-    cur = conn.cursor()
-
     if request.method == "POST":
-
-        cur.execute("""
-            DELETE FROM order_items
-            WHERE order_number = ?
-        """, (order_number,))
+        # Clear previous items for this order
+        OrderItem.query.filter_by(order_number=order_number).delete()
 
         for key, value in request.form.items():
-
             if key.startswith("quantity_"):
-
                 try:
                     quantity = int(value)
                 except ValueError:
@@ -405,60 +387,45 @@ def order():
                 if quantity > 0:
                     menu_id = int(key.split("_")[1])
 
-                    cur.execute("""
-                        INSERT INTO order_items
-                        (order_number, menu_id, quantity)
-                        VALUES (?, ?, ?)
-                    """, (
-                        order_number,
-                        menu_id,
-                        quantity
-                    ))
+                    new_order_item = OrderItem(
+                        order_number=order_number,
+                        menu_id=menu_id,
+                        quantity=quantity
+                    )
 
-        conn.commit()
-        conn.close()
+                    db.session.add(new_order_item)
+
+        db.session.commit()
 
         return redirect("/order_summary")
 
     search = request.args.get("search", "").strip()
     category = request.args.get("category", "").strip()
 
-    query = """
-        SELECT *
-        FROM menu
-        WHERE 1=1
-    """
-
-    params = []
+    query = Menu.query
 
     if search:
-        query += """
-            AND (
-                LOWER(name) LIKE ?
-                OR LOWER(description) LIKE ?
+        search_pattern = f"%{search}%"
+        query = query.filter(
+            db.or_(
+                Menu.name.ilike(search_pattern),
+                Menu.description.ilike(search_pattern)
             )
-        """
-        params.extend([f"%{search.lower()}%", f"%{search.lower()}%"])
+        )
 
     if category:
-        query += " AND LOWER(category) = ?"
-        params.append(category.lower())
+        query = query.filter(db.func.lower(Menu.category) == category.lower())
 
-    query += """
-        ORDER BY
-            CASE LOWER(category)
-                WHEN 'appetizers' THEN 1
-                WHEN 'entrees' THEN 2
-                WHEN 'desserts' THEN 3
-                WHEN 'beverages' THEN 4
-                ELSE 5
-            END,
-            name
-    """
-
-    cur.execute(query, params)
-    menu = cur.fetchall()
-    conn.close()
+    menu = query.order_by(
+        db.case(
+            (db.func.lower(Menu.category) == "appetizers", 1),
+            (db.func.lower(Menu.category) == "entrees", 2),
+            (db.func.lower(Menu.category) == "desserts", 3),
+            (db.func.lower(Menu.category) == "beverages", 4),
+            else_=5
+        ),
+        Menu.name
+    ).all()
 
     restaurant = get_restaurant()
 
@@ -472,25 +439,25 @@ def order():
 
 @app.route("/order_summary")
 def order_summary():
-    conn = get_db()
-    cur = conn.cursor()
-
     order_number = session.get("order_number")
 
     if not order_number:
         flash("Please start an order first.", "warning")
         return redirect("/start_order")
 
-    cur.execute("""
-        SELECT m.name, m.price, oi.quantity, (m.price * oi.quantity) AS total_price
-        FROM order_items oi
-        JOIN menu m ON m.menu_id = oi.menu_id
-        WHERE oi.order_number = ?
-    """, (order_number,))
+    order_items = (
+        db.session.query(
+            Menu.name,
+            Menu.price,
+            OrderItem.quantity,
+            (Menu.price * OrderItem.quantity).label("total_price")
+        )
+        .join(OrderItem, Menu.menu_id == OrderItem.menu_id)
+        .filter(OrderItem.order_number == order_number)
+        .all()
+    )
 
-    items = cur.fetchall()
-
-    subtotal = sum(item["total_price"] for item in items)
+    subtotal = sum(item.total_price for item in order_items)
 
     if subtotal > 0:
         tax = subtotal * 0.06625
@@ -503,11 +470,9 @@ def order_summary():
 
     total = subtotal + tax + tip + delivery_fee
 
-    conn.close()
-
     return render_template(
         "order_summary.html",
-        summary=items,
+        summary=order_items,
         subtotal=subtotal,
         tax=tax,
         tip=tip,
@@ -523,18 +488,12 @@ def order_history():
 
     customer_id = session["customer_id"]
 
-    conn = get_db()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT order_id, order_number, date_time, status, payment_method, total_amount
-        FROM orders
-        WHERE customer_id = ?
-        ORDER BY date_time DESC
-    """, (customer_id,))
-
-    orders = cur.fetchall()
-    conn.close()
+    orders = (
+        Order.query
+        .filter_by(customer_id=customer_id)
+        .order_by(Order.date_time.desc())
+        .all()
+    )
 
     return render_template("order_history.html", orders=orders)
 
@@ -546,31 +505,27 @@ def order_details(order_id):
 
     customer_id = session["customer_id"]
 
-    conn = get_db()
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT *
-        FROM orders
-        WHERE order_id = ? AND customer_id = ?
-    """, (order_id, customer_id))
-
-    order = cur.fetchone()
+    order = (
+        Order.query
+        .filter_by(order_id=order_id, customer_id=customer_id)
+        .first()
+    )
 
     if not order:
-        conn.close()
         flash("Order not found.", "warning")
         return redirect("/order-history")
 
-    cur.execute("""
-        SELECT m.name, m.price, oi.quantity, (m.price * oi.quantity) AS total_price
-        FROM order_items oi
-        JOIN menu m ON m.menu_id = oi.menu_id
-        WHERE oi.order_number = ?
-    """, (order["order_number"],))
-
-    items = cur.fetchall()
-    conn.close()
+    items = (
+        db.session.query(
+            Menu.name,
+            Menu.price,
+            OrderItem.quantity,
+            (Menu.price * OrderItem.quantity).label("total_price")
+        )
+        .join(OrderItem, Menu.menu_id == OrderItem.menu_id)
+        .filter(OrderItem.order_number == order.order_number)
+        .all()
+    )
 
     return render_template("order_details.html", order=order, items=items)
 
@@ -762,22 +717,21 @@ def checkout():
         flash("Please start an order before checking out.", "warning")
         return redirect("/start_order")
 
-    conn = get_db()
-    cur = conn.cursor()
+    order_items = (
+        db.session.query(
+            Menu.name,
+            Menu.price,
+            OrderItem.quantity,
+            (Menu.price * OrderItem.quantity).label("total_price")
+        )
+        .join(OrderItem, Menu.menu_id == OrderItem.menu_id)
+        .filter(OrderItem.order_number == order_number)
+        .all()
+    )
 
-    cur.execute("""
-        SELECT m.name, m.price, oi.quantity, (m.price * oi.quantity) AS total_price
-        FROM order_items oi
-        JOIN menu m ON m.menu_id = oi.menu_id
-        WHERE oi.order_number = ?
-    """, (order_number,))
-
-    items = cur.fetchall()
-
-    subtotal = sum(item["total_price"] for item in items)
+    subtotal = sum(item.total_price for item in order_items)
 
     if subtotal <= 0:
-        conn.close()
         flash("Your cart is empty. Please add items before checking out.", "warning")
         return redirect("/order")
 
@@ -790,19 +744,18 @@ def checkout():
         try:
             line_items = []
 
-            for item in items:
+            for item in order_items:
                 line_items.append({
                     "price_data": {
                         "currency": "usd",
                         "product_data": {
-                            "name": item["name"],
+                            "name": item.name,
                         },
-                        "unit_amount": int(round(item["price"] * 100)),
+                        "unit_amount": int(round(item.price * 100)),
                     },
-                    "quantity": item["quantity"],
+                    "quantity": item.quantity,
                 })
 
-            # Add tax/tip/delivery as separate line item
             service_total = tax + tip + delivery_fee
 
             if service_total > 0:
@@ -831,37 +784,26 @@ def checkout():
                 }
             )
 
-            cur.execute("""
-                UPDATE orders
-                SET stripe_session_id = ?, 
-                    stripe_payment_status = ?, 
-                    total_amount = ?,
-                    status = ?
-                WHERE order_number = ?
-            """, (
-                checkout_session.id,
-                "created",
-                total,
-                "Pending Payment",
-                order_number
-            ))
+            order = Order.query.filter_by(order_number=order_number).first()
 
-            conn.commit()
-            conn.close()
+            if order:
+                order.stripe_session_id = checkout_session.id
+                order.stripe_payment_status = "created"
+                order.total_amount = total
+                order.status = "Pending Payment"
+
+                db.session.commit()
 
             return redirect(checkout_session.url, code=303)
 
         except Exception as e:
-            conn.close()
-            print("Stripe checkout error:", e)
+            print("Stripe checkout error:", repr(e))
             flash("There was an error starting Stripe Checkout.", "danger")
             return redirect("/checkout")
 
-    conn.close()
-
     return render_template(
         "checkout.html",
-        items=items,
+        items=order_items,
         subtotal=subtotal,
         tax=tax,
         tip=tip,
@@ -883,32 +825,24 @@ def payment_success():
         order_number = checkout_session["metadata"]["order_number"]
         payment_status = checkout_session["payment_status"]
 
-        conn = get_db()
-        cur = conn.cursor()
+        order = Order.query.filter_by(order_number=order_number).first()
+
+        if not order:
+            flash("Order not found after payment.", "danger")
+            return redirect("/")
 
         if payment_status == "paid":
-            cur.execute("""
-                UPDATE orders
-                SET status = ?, 
-                    stripe_payment_status = ?,
-                    payment_method = ?
-                WHERE order_number = ?
-            """, (
-                "Paid",
-                payment_status,
-                "Stripe",
-                order_number
-            ))
+            order.status = "Paid"
+            order.stripe_payment_status = payment_status
+            order.payment_method = "Stripe"
 
-            conn.commit()
-            conn.close()
+            db.session.commit()
 
             session["order_number"] = order_number
 
             flash("Payment successful! Your order has been placed.", "success")
             return redirect("/confirmation")
 
-        conn.close()
         flash("Payment was not completed.", "warning")
         return redirect("/checkout")
 
@@ -930,27 +864,23 @@ def confirmation():
         flash("No completed order found.", "warning")
         return redirect("/start_order")
 
-    conn = get_db()
-    cur = conn.cursor()
+    order = Order.query.filter_by(order_number=order_number).first()
 
-    cur.execute("""
-        SELECT *
-        FROM orders
-        WHERE order_number = ?
-    """, (order_number,))
+    if not order:
+        flash("Order not found.", "warning")
+        return redirect("/start_order")
 
-    order = cur.fetchone()
-
-    cur.execute("""
-        SELECT m.name, m.price, oi.quantity, (m.price * oi.quantity) AS total_price
-        FROM order_items oi
-        JOIN menu m ON m.menu_id = oi.menu_id
-        WHERE oi.order_number = ?
-    """, (order_number,))
-
-    items = cur.fetchall()
-
-    conn.close()
+    items = (
+        db.session.query(
+            Menu.name,
+            Menu.price,
+            OrderItem.quantity,
+            (Menu.price * OrderItem.quantity).label("total_price")
+        )
+        .join(OrderItem, Menu.menu_id == OrderItem.menu_id)
+        .filter(OrderItem.order_number == order_number)
+        .all()
+    )
 
     session.pop("order_number", None)
 
