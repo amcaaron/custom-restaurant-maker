@@ -298,17 +298,6 @@ def admin():
 
     return render_template("admin.html", menu=menu)
 
-@app.route("/create-tables")
-def create_tables():
-    if not session.get("admin_logged_in"):
-        flash("Please log in as admin first.", "warning")
-        return redirect("/login")
-
-    db.create_all()
-
-    flash("Database tables created successfully.", "success")
-    return redirect("/")
-
 @app.route("/start_order", methods=["GET", "POST"])
 def start_order():
     if not session.get("customer_id"):
@@ -509,7 +498,10 @@ def admin_login():
         username = request.form.get("username")
         password = request.form.get("password")
 
-        if username == "admin" and password == "password123":
+        admin_username = os.getenv("ADMIN_USERNAME")
+        admin_password = os.getenv("ADMIN_PASSWORD")
+
+        if username == admin_username and password == admin_password:
             session["admin_logged_in"] = True
             session["admin_username"] = username
             flash("Admin logged in successfully.", "success")
@@ -911,6 +903,13 @@ def api_delete_menu_item(menu_id):
     if item is None:
         return jsonify({"error": "Menu item not found"}), 404
 
+    existing_order_items = OrderItem.query.filter_by(menu_id=menu_id).first()
+
+    if existing_order_items:
+        return jsonify({
+            "error": "This menu item cannot be deleted because it exists in previous orders."
+        }), 400
+
     db.session.delete(item)
     db.session.commit()
 
@@ -1170,6 +1169,11 @@ def admin_analytics():
         recent_orders=recent_orders,
         top_customers=top_customers
     )
+
+@app.cli.command("init-db")
+def init_db():
+    db.create_all()
+    print("Database tables created successfully.")
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
