@@ -5,6 +5,7 @@ import base64
 import uuid
 import cloudinary
 import cloudinary.uploader
+import stripe
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -25,6 +26,8 @@ cloudinary.config(
 )
 
 app.secret_key = os.getenv("SECRET_KEY", "fallback-secret-key")
+
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 database_url = os.getenv("DATABASE_URL", "sqlite:///project4.db")
 
@@ -688,29 +691,87 @@ def checkout():
     items = cur.fetchall()
 
     subtotal = sum(item["total_price"] for item in items)
+
+    if subtotal <= 0:
+        conn.close()
+        flash("Your cart is empty. Please add items before checking out.", "warning")
+        return redirect("/order")
+
     tax = subtotal * 0.06625
     tip = subtotal * 0.15
     delivery_fee = 5
     total = subtotal + tax + tip + delivery_fee
 
     if request.method == "POST":
-        payment_method = request.form["payment_method"]
+        try:
+            line_items = []
 
-        cur.execute("""
-            UPDATE orders
-            SET status = ?, payment_method = ?, total_amount = ?
-            WHERE order_number = ?
-        """, (
-            "Paid",
-            payment_method,
-            total,
-            order_number
-        ))
+            for item in items:
+                line_items.append({
+                    "price_data": {
+                        "currency": "usd",
+                        "product_data": {
+                            "name": item["name"],
+                        },
+                        "unit_amount": int(round(item["price"] * 100)),
+                    },
+                    "quantity": item["quantity"],
+                })
 
-        conn.commit()
-        conn.close()
+            # Add tax/tip/delivery as separate line item
+            service_total = tax + tip + delivery_fee
 
-        return redirect("/confirmation")
+            if service_total > 0:
+                line_items.append({
+                    "price_data": {
+                        "currency": "usd",
+                        "product_data": {
+                            "name": "Tax, Tip, and Delivery Fee",
+                        },
+                        "unit_amount": int(round(service_total * 100)),
+                    },
+                    "quantity": 1,
+                })
+
+            checkout_session = stripe.checkout.Session.create(
+                payment_method_types=["card"],
+                line_items=line_items,
+                mode="payment",
+                success_url=url_for(
+                    "payment_success",
+                    _external=True
+                ) + "?session_id={CHECKOUT_SESSION_ID}",
+                cancel_url=url_for("payment_cancel", _external=True),
+                metadata={
+                    "order_number": order_number
+                }
+            )
+
+            cur.execute("""
+                UPDATE orders
+                SET stripe_session_id = ?, 
+                    stripe_payment_status = ?, 
+                    total_amount = ?,
+                    status = ?
+                WHERE order_number = ?
+            """, (
+                checkout_session.id,
+                "created",
+                total,
+                "Pending Payment",
+                order_number
+            ))
+
+            conn.commit()
+            conn.close()
+
+            return redirect(checkout_session.url, code=303)
+
+        except Exception as e:
+            conn.close()
+            print("Stripe checkout error:", e)
+            flash("There was an error starting Stripe Checkout.", "danger")
+            return redirect("/checkout")
 
     conn.close()
 
@@ -723,6 +784,59 @@ def checkout():
         delivery_fee=delivery_fee,
         total=total
     )
+
+@app.route("/payment-success")
+def payment_success():
+    stripe_session_id = request.args.get("session_id")
+
+    if not stripe_session_id:
+        flash("Missing Stripe session ID.", "warning")
+        return redirect("/")
+
+    try:
+        checkout_session = stripe.checkout.Session.retrieve(stripe_session_id)
+
+        order_number = checkout_session["metadata"]["order_number"]
+        payment_status = checkout_session["payment_status"]
+
+        conn = get_db()
+        cur = conn.cursor()
+
+        if payment_status == "paid":
+            cur.execute("""
+                UPDATE orders
+                SET status = ?, 
+                    stripe_payment_status = ?,
+                    payment_method = ?
+                WHERE order_number = ?
+            """, (
+                "Paid",
+                payment_status,
+                "Stripe",
+                order_number
+            ))
+
+            conn.commit()
+            conn.close()
+
+            session["order_number"] = order_number
+
+            flash("Payment successful! Your order has been placed.", "success")
+            return redirect("/confirmation")
+
+        conn.close()
+        flash("Payment was not completed.", "warning")
+        return redirect("/checkout")
+
+    except Exception as e:
+        print("Stripe success error:", repr(e))
+        flash(f"Could not verify payment: {e}", "danger")
+        return redirect("/")
+    
+@app.route("/payment-cancel")
+def payment_cancel():
+    flash("Payment was canceled. You can try checking out again.", "warning")
+    return redirect("/checkout")
 
 @app.route("/confirmation")
 def confirmation():

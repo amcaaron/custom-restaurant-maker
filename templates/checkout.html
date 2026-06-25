@@ -9,6 +9,44 @@
 <div class="row justify-content-center">
     <div class="col-md-8">
 
+        <!-- ORDER ITEMS -->
+        <div class="card shadow mb-4">
+            <div class="card-header bg-dark text-white">
+                <h3 class="mb-0">Order Items</h3>
+            </div>
+
+            <div class="card-body">
+
+                {% if items %}
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Price</th>
+                                <th>Quantity</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for item in items %}
+                            <tr>
+                                <td>{{ item["name"] }}</td>
+                                <td>${{ "%.2f"|format(item["price"]) }}</td>
+                                <td>{{ item["quantity"] }}</td>
+                                <td>${{ "%.2f"|format(item["total_price"]) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                {% else %}
+                    <p>No items found in your order.</p>
+                {% endif %}
+
+            </div>
+        </div>
+
+        <!-- ORDER TOTAL -->
         <div class="card shadow mb-4">
             <div class="card-header bg-dark text-white">
                 <h3 class="mb-0">Order Total</h3>
@@ -30,36 +68,31 @@
             </div>
         </div>
 
+        <!-- STRIPE PAYMENT -->
         <div class="card shadow">
             <div class="card-header bg-success text-white">
-                <h3 class="mb-0">Payment Method</h3>
+                <h3 class="mb-0">Secure Payment</h3>
             </div>
 
-            <div class="card-body">
+            <div class="card-body text-center">
+
+                <p class="lead">
+                    Click below to complete your payment securely through Stripe.
+                </p>
 
                 <form method="post" action="/checkout">
-
-                    <div class="mb-3">
-                        <label class="form-label">Choose Payment Method</label>
-
-                        <select name="payment_method" class="form-select" required>
-                            <option value="">Select Payment Method</option>
-                            <option value="Credit Card">Credit Card</option>
-                            <option value="Debit Card">Debit Card</option>
-                            <option value="Cash">Cash</option>
-                            <option value="Apple Pay">Apple Pay</option>
-                        </select>
-                    </div>
-
                     <button type="submit" class="btn btn-success btn-lg">
-                        Place Order
+                        Pay with Stripe
                     </button>
 
                     <a href="/order_summary" class="btn btn-secondary btn-lg">
                         Back to Summary
                     </a>
-
                 </form>
+
+                <p class="text-muted mt-3">
+                    You will be redirected to Stripe's secure checkout page.
+                </p>
 
             </div>
         </div>
