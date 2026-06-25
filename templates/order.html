@@ -28,19 +28,80 @@
 
 </div>
 
+<!-- SEARCH AND FILTER FORM -->
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <form method="GET" action="/order" class="row g-3 align-items-end">
+
+            <div class="col-md-6">
+                <label class="form-label">Search Menu</label>
+                <input 
+                    type="text" 
+                    name="search" 
+                    class="form-control" 
+                    placeholder="Search by item name or description..."
+                    value="{{ search or '' }}">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Filter by Category</label>
+                <select name="category" class="form-control">
+                    <option value="">All Categories</option>
+
+                    <option value="appetizers" {% if selected_category == "appetizers" %}selected{% endif %}>
+                        Appetizers
+                    </option>
+
+                    <option value="entrees" {% if selected_category == "entrees" %}selected{% endif %}>
+                        Entrees
+                    </option>
+
+                    <option value="desserts" {% if selected_category == "desserts" %}selected{% endif %}>
+                        Desserts
+                    </option>
+
+                    <option value="beverages" {% if selected_category == "beverages" %}selected{% endif %}>
+                        Beverages
+                    </option>
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-custom-orange w-100">
+                    Filter
+                </button>
+            </div>
+
+        </form>
+
+        <div class="mt-3">
+            <a href="/order" class="btn btn-outline-secondary btn-sm">
+                Clear Filters
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- CATEGORY SHORTCUT BUTTONS -->
 <div class="text-center mb-4">
-    <a href="{{ url_for('appetizers') }}" class="btn btn-primary">Appetizers</a>
-    <a href="{{ url_for('entrees') }}" class="btn btn-success">Entrees</a>
-    <a href="{{ url_for('desserts') }}" class="btn btn-warning">Desserts</a>
-    <a href="{{ url_for('beverages') }}" class="btn btn-info">Beverages</a>
+    <a href="/order?category=appetizers" class="btn btn-primary">Appetizers</a>
+    <a href="/order?category=entrees" class="btn btn-success">Entrees</a>
+    <a href="/order?category=desserts" class="btn btn-warning">Desserts</a>
+    <a href="/order?category=beverages" class="btn btn-info">Beverages</a>
+    <a href="/order" class="btn btn-secondary">All Menu</a>
 </div>
 
 <form method="post" action="/order">
 
     <!-- APPETIZERS -->
+    {% set appetizers = menu | selectattr("category", "equalto", "Appetizers") | list %}
+    {% set appetizers_lower = [] %}
+
     <h2 class="section-title">🍤 Appetizers</h2>
 
     <div class="row">
+        {% set has_appetizers = false %}
+
         {% for item in menu %}
             {% if item['category'].lower() == 'appetizers' %}
                 <div class="col-md-4 mb-4">
@@ -81,7 +142,6 @@
 
     <!-- ENTREES -->
     <h2 class="section-title">🍽 Entrees</h2>
-
 
     <div class="row">
         {% for item in menu %}
@@ -205,6 +265,12 @@
             {% endif %}
         {% endfor %}
     </div>
+
+    {% if not menu %}
+        <div class="alert alert-info text-center">
+            No menu items matched your search or filter.
+        </div>
+    {% endif %}
 
     <div class="text-center mt-4 mb-5">
         <input

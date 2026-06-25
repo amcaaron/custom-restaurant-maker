@@ -7,6 +7,7 @@ from datetime import datetime
 
 from dotenv import load_dotenv
 from openai import OpenAI
+from flask_sqlalchemy import SQLAlchemy
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, session, flash, url_for, jsonify
@@ -14,7 +15,17 @@ from flask import Flask, render_template, request, redirect, session, flash, url
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = "mysecretkey"  # Needed for session handling
+app.secret_key = os.getenv("SECRET_KEY", "fallback-secret-key")
+
+database_url = os.getenv("DATABASE_URL", "sqlite:///project4.db")
+
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = database_url
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db = SQLAlchemy(app)
 
 UPLOAD_FOLDER = "static/uploads"
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
@@ -301,9 +312,31 @@ def order():
 
         return redirect("/order_summary")
 
-    cur.execute("""
+    search = request.args.get("search", "").strip()
+    category = request.args.get("category", "").strip()
+
+    query = """
         SELECT *
         FROM menu
+        WHERE 1=1
+    """
+
+    params = []
+
+    if search:
+        query += """
+            AND (
+                LOWER(name) LIKE ?
+                OR LOWER(description) LIKE ?
+            )
+        """
+        params.extend([f"%{search.lower()}%", f"%{search.lower()}%"])
+
+    if category:
+        query += " AND LOWER(category) = ?"
+        params.append(category.lower())
+
+    query += """
         ORDER BY
             CASE LOWER(category)
                 WHEN 'appetizers' THEN 1
@@ -313,14 +346,21 @@ def order():
                 ELSE 5
             END,
             name
-    """)
+    """
 
+    cur.execute(query, params)
     menu = cur.fetchall()
     conn.close()
 
     restaurant = get_restaurant()
 
-    return render_template("order.html", menu=menu, restaurant=restaurant)
+    return render_template(
+        "order.html",
+        menu=menu,
+        restaurant=restaurant,
+        search=search,
+        selected_category=category
+    )
 
 @app.route("/order_summary")
 def order_summary():
@@ -425,6 +465,23 @@ def order_details(order_id):
     conn.close()
 
     return render_template("order_details.html", order=order, items=items)
+
+@app.route("/login", methods=["GET", "POST"])
+def admin_login():
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+
+        if username == "admin" and password == "password123":
+            session["admin_logged_in"] = True
+            session["admin_username"] = username
+            flash("Admin logged in successfully.", "success")
+            return redirect("/admin")
+
+        flash("Invalid admin username or password.", "danger")
+        return redirect("/login")
+
+    return render_template("login.html")
 
 @app.route("/customer-login", methods=["GET", "POST"])
 def customer_login():
